@@ -9,7 +9,7 @@
     "architecture": "arm64",
     "agentVersion": "2.4.1",
     "firstSeen": "2026-07-06T17:38:55.805Z",
-    "lastSeen": "2026-07-06T19:27:09.674Z",
+    "lastSeen": "2026-07-06T20:09:09.490Z",
     "status": "online",
     "pollingInterval": 10,
     "enabledModules": [
@@ -28,96 +28,6 @@
       "diskPercent": 95
     },
     "performanceHistory": [
-      {
-        "timestamp": "2026-07-06T19:07:47.733Z",
-        "cpu": 34,
-        "memory": 82,
-        "disk": 35
-      },
-      {
-        "timestamp": "2026-07-06T19:07:57.741Z",
-        "cpu": 41,
-        "memory": 83,
-        "disk": 35
-      },
-      {
-        "timestamp": "2026-07-06T19:08:07.751Z",
-        "cpu": 38,
-        "memory": 84,
-        "disk": 35
-      },
-      {
-        "timestamp": "2026-07-06T19:08:17.761Z",
-        "cpu": 41,
-        "memory": 86,
-        "disk": 35
-      },
-      {
-        "timestamp": "2026-07-06T19:08:27.773Z",
-        "cpu": 33,
-        "memory": 88,
-        "disk": 35
-      },
-      {
-        "timestamp": "2026-07-06T19:08:37.781Z",
-        "cpu": 39,
-        "memory": 88,
-        "disk": 35
-      },
-      {
-        "timestamp": "2026-07-06T19:08:47.792Z",
-        "cpu": 38,
-        "memory": 89,
-        "disk": 35
-      },
-      {
-        "timestamp": "2026-07-06T19:08:57.801Z",
-        "cpu": 42,
-        "memory": 90,
-        "disk": 35
-      },
-      {
-        "timestamp": "2026-07-06T19:09:07.813Z",
-        "cpu": 42,
-        "memory": 91,
-        "disk": 35
-      },
-      {
-        "timestamp": "2026-07-06T19:09:17.833Z",
-        "cpu": 41,
-        "memory": 96,
-        "disk": 35
-      },
-      {
-        "timestamp": "2026-07-06T19:09:27.841Z",
-        "cpu": 37,
-        "memory": 96,
-        "disk": 35
-      },
-      {
-        "timestamp": "2026-07-06T19:09:37.849Z",
-        "cpu": 37,
-        "memory": 96,
-        "disk": 35
-      },
-      {
-        "timestamp": "2026-07-06T19:09:47.872Z",
-        "cpu": 40,
-        "memory": 98,
-        "disk": 35
-      },
-      {
-        "timestamp": "2026-07-06T19:09:57.880Z",
-        "cpu": 45,
-        "memory": 98,
-        "disk": 35
-      },
-      {
-        "timestamp": "2026-07-06T19:10:07.890Z",
-        "cpu": 42,
-        "memory": 99,
-        "disk": 35
-      },
       {
         "timestamp": "2026-07-06T19:10:17.914Z",
         "cpu": 36,
@@ -627,6 +537,96 @@
         "cpu": 27,
         "memory": 99,
         "disk": 35
+      },
+      {
+        "timestamp": "2026-07-06T20:06:43.058Z",
+        "cpu": 43,
+        "memory": 99,
+        "disk": 35
+      },
+      {
+        "timestamp": "2026-07-06T20:06:53.071Z",
+        "cpu": 38,
+        "memory": 97,
+        "disk": 35
+      },
+      {
+        "timestamp": "2026-07-06T20:07:03.087Z",
+        "cpu": 46,
+        "memory": 99,
+        "disk": 35
+      },
+      {
+        "timestamp": "2026-07-06T20:07:13.191Z",
+        "cpu": 39,
+        "memory": 97,
+        "disk": 35
+      },
+      {
+        "timestamp": "2026-07-06T20:07:23.210Z",
+        "cpu": 42,
+        "memory": 91,
+        "disk": 35
+      },
+      {
+        "timestamp": "2026-07-06T20:07:33.222Z",
+        "cpu": 41,
+        "memory": 92,
+        "disk": 35
+      },
+      {
+        "timestamp": "2026-07-06T20:07:43.231Z",
+        "cpu": 41,
+        "memory": 96,
+        "disk": 35
+      },
+      {
+        "timestamp": "2026-07-06T20:07:53.243Z",
+        "cpu": 46,
+        "memory": 99,
+        "disk": 35
+      },
+      {
+        "timestamp": "2026-07-06T20:08:03.288Z",
+        "cpu": 42,
+        "memory": 99,
+        "disk": 35
+      },
+      {
+        "timestamp": "2026-07-06T20:08:13.300Z",
+        "cpu": 39,
+        "memory": 95,
+        "disk": 35
+      },
+      {
+        "timestamp": "2026-07-06T20:08:23.314Z",
+        "cpu": 38,
+        "memory": 98,
+        "disk": 35
+      },
+      {
+        "timestamp": "2026-07-06T20:08:39.450Z",
+        "cpu": 43,
+        "memory": 99,
+        "disk": 35
+      },
+      {
+        "timestamp": "2026-07-06T20:08:49.469Z",
+        "cpu": 42,
+        "memory": 99,
+        "disk": 35
+      },
+      {
+        "timestamp": "2026-07-06T20:08:59.479Z",
+        "cpu": 49,
+        "memory": 98,
+        "disk": 35
+      },
+      {
+        "timestamp": "2026-07-06T20:09:09.490Z",
+        "cpu": 38,
+        "memory": 99,
+        "disk": 35
       }
     ],
     "commands": [],
@@ -674,8 +674,8 @@
       "architecture": "arm64",
       "timezone": "Europe/London",
       "locale": "C.UTF-8",
-      "uptime": 1678,
-      "lastBoot": "2026-07-06T18:02:17.383Z",
+      "uptime": 7582,
+      "lastBoot": "2026-07-06T18:02:17.240Z",
       "loggedUser": "SETH",
       "manufacturer": "Apple Inc.",
       "model": "Mac15,3",
@@ -692,7 +692,7 @@
       },
       "memory": {
         "total": 17179869184,
-        "used": 16927047680
+        "used": 17012981760
       },
       "disks": [
         {
@@ -933,7 +933,7 @@
     "processes": [
       {
         "name": "node",
-        "pid": 3366,
+        "pid": 20371,
         "cpu": 1.2,
         "memory": 4.5
       },
