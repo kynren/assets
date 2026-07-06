@@ -9,7 +9,7 @@
     "architecture": "arm64",
     "agentVersion": "2.4.1",
     "firstSeen": "2026-07-06T17:38:55.805Z",
-    "lastSeen": "2026-07-06T22:06:52.702Z",
+    "lastSeen": "2026-07-06T22:11:13.298Z",
     "status": "online",
     "pollingInterval": 10,
     "enabledModules": [
@@ -28,162 +28,6 @@
       "diskPercent": 95
     },
     "performanceHistory": [
-      {
-        "timestamp": "2026-07-06T21:50:20.174Z",
-        "cpu": 37,
-        "memory": 99,
-        "disk": 35
-      },
-      {
-        "timestamp": "2026-07-06T21:50:30.203Z",
-        "cpu": 26,
-        "memory": 99,
-        "disk": 35
-      },
-      {
-        "timestamp": "2026-07-06T21:50:40.232Z",
-        "cpu": 20,
-        "memory": 99,
-        "disk": 35
-      },
-      {
-        "timestamp": "2026-07-06T21:50:50.257Z",
-        "cpu": 32,
-        "memory": 99,
-        "disk": 35
-      },
-      {
-        "timestamp": "2026-07-06T21:51:00.292Z",
-        "cpu": 44,
-        "memory": 99,
-        "disk": 35
-      },
-      {
-        "timestamp": "2026-07-06T21:51:10.328Z",
-        "cpu": 41,
-        "memory": 98,
-        "disk": 35
-      },
-      {
-        "timestamp": "2026-07-06T21:51:20.346Z",
-        "cpu": 79,
-        "memory": 98,
-        "disk": 35
-      },
-      {
-        "timestamp": "2026-07-06T21:51:30.359Z",
-        "cpu": 25,
-        "memory": 99,
-        "disk": 35
-      },
-      {
-        "timestamp": "2026-07-06T21:51:40.387Z",
-        "cpu": 32,
-        "memory": 95,
-        "disk": 35
-      },
-      {
-        "timestamp": "2026-07-06T21:51:50.403Z",
-        "cpu": 41,
-        "memory": 99,
-        "disk": 35
-      },
-      {
-        "timestamp": "2026-07-06T21:52:00.434Z",
-        "cpu": 41,
-        "memory": 99,
-        "disk": 35
-      },
-      {
-        "timestamp": "2026-07-06T21:52:10.461Z",
-        "cpu": 31,
-        "memory": 100,
-        "disk": 35
-      },
-      {
-        "timestamp": "2026-07-06T21:52:20.490Z",
-        "cpu": 33,
-        "memory": 99,
-        "disk": 35
-      },
-      {
-        "timestamp": "2026-07-06T21:52:30.518Z",
-        "cpu": 32,
-        "memory": 100,
-        "disk": 35
-      },
-      {
-        "timestamp": "2026-07-06T21:52:40.540Z",
-        "cpu": 22,
-        "memory": 99,
-        "disk": 35
-      },
-      {
-        "timestamp": "2026-07-06T21:52:50.577Z",
-        "cpu": 28,
-        "memory": 99,
-        "disk": 35
-      },
-      {
-        "timestamp": "2026-07-06T21:53:00.598Z",
-        "cpu": 46,
-        "memory": 100,
-        "disk": 35
-      },
-      {
-        "timestamp": "2026-07-06T21:53:10.631Z",
-        "cpu": 22,
-        "memory": 99,
-        "disk": 35
-      },
-      {
-        "timestamp": "2026-07-06T21:53:20.663Z",
-        "cpu": 28,
-        "memory": 99,
-        "disk": 35
-      },
-      {
-        "timestamp": "2026-07-06T21:53:30.682Z",
-        "cpu": 25,
-        "memory": 99,
-        "disk": 35
-      },
-      {
-        "timestamp": "2026-07-06T21:53:40.693Z",
-        "cpu": 27,
-        "memory": 100,
-        "disk": 35
-      },
-      {
-        "timestamp": "2026-07-06T21:53:50.723Z",
-        "cpu": 27,
-        "memory": 99,
-        "disk": 35
-      },
-      {
-        "timestamp": "2026-07-06T21:54:00.757Z",
-        "cpu": 42,
-        "memory": 99,
-        "disk": 35
-      },
-      {
-        "timestamp": "2026-07-06T21:54:10.785Z",
-        "cpu": 34,
-        "memory": 99,
-        "disk": 35
-      },
-      {
-        "timestamp": "2026-07-06T21:54:20.798Z",
-        "cpu": 45,
-        "memory": 100,
-        "disk": 35
-      },
-      {
-        "timestamp": "2026-07-06T21:54:30.847Z",
-        "cpu": 35,
-        "memory": 100,
-        "disk": 35
-      },
       {
         "timestamp": "2026-07-06T21:54:40.868Z",
         "cpu": 38,
@@ -627,6 +471,162 @@
         "cpu": 48,
         "memory": 99,
         "disk": 35
+      },
+      {
+        "timestamp": "2026-07-06T22:07:02.715Z",
+        "cpu": 56,
+        "memory": 100,
+        "disk": 35
+      },
+      {
+        "timestamp": "2026-07-06T22:07:12.735Z",
+        "cpu": 47,
+        "memory": 99,
+        "disk": 35
+      },
+      {
+        "timestamp": "2026-07-06T22:07:22.761Z",
+        "cpu": 43,
+        "memory": 100,
+        "disk": 35
+      },
+      {
+        "timestamp": "2026-07-06T22:07:32.782Z",
+        "cpu": 41,
+        "memory": 99,
+        "disk": 35
+      },
+      {
+        "timestamp": "2026-07-06T22:07:42.796Z",
+        "cpu": 41,
+        "memory": 100,
+        "disk": 35
+      },
+      {
+        "timestamp": "2026-07-06T22:07:52.812Z",
+        "cpu": 56,
+        "memory": 100,
+        "disk": 35
+      },
+      {
+        "timestamp": "2026-07-06T22:08:02.830Z",
+        "cpu": 52,
+        "memory": 100,
+        "disk": 35
+      },
+      {
+        "timestamp": "2026-07-06T22:08:12.847Z",
+        "cpu": 24,
+        "memory": 99,
+        "disk": 35
+      },
+      {
+        "timestamp": "2026-07-06T22:08:22.869Z",
+        "cpu": 41,
+        "memory": 99,
+        "disk": 35
+      },
+      {
+        "timestamp": "2026-07-06T22:08:32.903Z",
+        "cpu": 33,
+        "memory": 99,
+        "disk": 35
+      },
+      {
+        "timestamp": "2026-07-06T22:08:42.932Z",
+        "cpu": 43,
+        "memory": 100,
+        "disk": 35
+      },
+      {
+        "timestamp": "2026-07-06T22:08:52.950Z",
+        "cpu": 37,
+        "memory": 100,
+        "disk": 35
+      },
+      {
+        "timestamp": "2026-07-06T22:09:02.980Z",
+        "cpu": 57,
+        "memory": 99,
+        "disk": 35
+      },
+      {
+        "timestamp": "2026-07-06T22:09:13.003Z",
+        "cpu": 40,
+        "memory": 99,
+        "disk": 35
+      },
+      {
+        "timestamp": "2026-07-06T22:09:23.034Z",
+        "cpu": 27,
+        "memory": 100,
+        "disk": 35
+      },
+      {
+        "timestamp": "2026-07-06T22:09:33.064Z",
+        "cpu": 23,
+        "memory": 99,
+        "disk": 35
+      },
+      {
+        "timestamp": "2026-07-06T22:09:43.102Z",
+        "cpu": 29,
+        "memory": 100,
+        "disk": 35
+      },
+      {
+        "timestamp": "2026-07-06T22:09:53.127Z",
+        "cpu": 41,
+        "memory": 99,
+        "disk": 35
+      },
+      {
+        "timestamp": "2026-07-06T22:10:03.155Z",
+        "cpu": 47,
+        "memory": 99,
+        "disk": 35
+      },
+      {
+        "timestamp": "2026-07-06T22:10:13.192Z",
+        "cpu": 60,
+        "memory": 99,
+        "disk": 35
+      },
+      {
+        "timestamp": "2026-07-06T22:10:23.222Z",
+        "cpu": 65,
+        "memory": 100,
+        "disk": 35
+      },
+      {
+        "timestamp": "2026-07-06T22:10:33.236Z",
+        "cpu": 43,
+        "memory": 89,
+        "disk": 35
+      },
+      {
+        "timestamp": "2026-07-06T22:10:43.248Z",
+        "cpu": 49,
+        "memory": 99,
+        "disk": 35
+      },
+      {
+        "timestamp": "2026-07-06T22:10:53.266Z",
+        "cpu": 46,
+        "memory": 100,
+        "disk": 35
+      },
+      {
+        "timestamp": "2026-07-06T22:11:03.280Z",
+        "cpu": 47,
+        "memory": 99,
+        "disk": 35
+      },
+      {
+        "timestamp": "2026-07-06T22:11:13.298Z",
+        "cpu": 41,
+        "memory": 99,
+        "disk": 35
       }
     ],
     "commands": [],
@@ -962,8 +962,8 @@
     "architecture": "wasm/v8",
     "agentVersion": "1.2.5",
     "firstSeen": "2026-07-06T20:58:37.996Z",
-    "lastSeen": "2026-07-06T21:30:53.037Z",
-    "status": "offline",
+    "lastSeen": "2026-07-06T22:11:13.050Z",
+    "status": "online",
     "pollingInterval": 10,
     "enabledModules": [
       "system",
@@ -981,150 +981,6 @@
       "diskPercent": 95
     },
     "performanceHistory": [
-      {
-        "timestamp": "2026-07-06T21:25:33.860Z",
-        "cpu": 2,
-        "memory": 5,
-        "disk": 15,
-        "networkRx": 19,
-        "networkTx": 5
-      },
-      {
-        "timestamp": "2026-07-06T21:25:33.862Z",
-        "cpu": 1,
-        "memory": 5,
-        "disk": 15,
-        "networkRx": 17,
-        "networkTx": 7
-      },
-      {
-        "timestamp": "2026-07-06T21:25:39.865Z",
-        "cpu": 2,
-        "memory": 5,
-        "disk": 15,
-        "networkRx": 12,
-        "networkTx": 7
-      },
-      {
-        "timestamp": "2026-07-06T21:25:39.866Z",
-        "cpu": 2,
-        "memory": 5,
-        "disk": 15,
-        "networkRx": 24,
-        "networkTx": 13
-      },
-      {
-        "timestamp": "2026-07-06T21:25:45.863Z",
-        "cpu": 2,
-        "memory": 4,
-        "disk": 15,
-        "networkRx": 15,
-        "networkTx": 12
-      },
-      {
-        "timestamp": "2026-07-06T21:25:45.866Z",
-        "cpu": 3,
-        "memory": 4,
-        "disk": 15,
-        "networkRx": 17,
-        "networkTx": 6
-      },
-      {
-        "timestamp": "2026-07-06T21:25:51.860Z",
-        "cpu": 1,
-        "memory": 5,
-        "disk": 15,
-        "networkRx": 14,
-        "networkTx": 10
-      },
-      {
-        "timestamp": "2026-07-06T21:25:51.863Z",
-        "cpu": 4,
-        "memory": 5,
-        "disk": 15,
-        "networkRx": 17,
-        "networkTx": 6
-      },
-      {
-        "timestamp": "2026-07-06T21:25:57.862Z",
-        "cpu": 4,
-        "memory": 5,
-        "disk": 15,
-        "networkRx": 16,
-        "networkTx": 5
-      },
-      {
-        "timestamp": "2026-07-06T21:25:57.866Z",
-        "cpu": 5,
-        "memory": 5,
-        "disk": 15,
-        "networkRx": 18,
-        "networkTx": 13
-      },
-      {
-        "timestamp": "2026-07-06T21:26:03.857Z",
-        "cpu": 5,
-        "memory": 4,
-        "disk": 15,
-        "networkRx": 12,
-        "networkTx": 9
-      },
-      {
-        "timestamp": "2026-07-06T21:26:03.860Z",
-        "cpu": 5,
-        "memory": 4,
-        "disk": 15,
-        "networkRx": 15,
-        "networkTx": 5
-      },
-      {
-        "timestamp": "2026-07-06T21:26:09.861Z",
-        "cpu": 1,
-        "memory": 5,
-        "disk": 15,
-        "networkRx": 24,
-        "networkTx": 9
-      },
-      {
-        "timestamp": "2026-07-06T21:26:09.862Z",
-        "cpu": 4,
-        "memory": 5,
-        "disk": 15,
-        "networkRx": 12,
-        "networkTx": 11
-      },
-      {
-        "timestamp": "2026-07-06T21:26:15.867Z",
-        "cpu": 3,
-        "memory": 5,
-        "disk": 15,
-        "networkRx": 19,
-        "networkTx": 9
-      },
-      {
-        "timestamp": "2026-07-06T21:26:15.869Z",
-        "cpu": 5,
-        "memory": 5,
-        "disk": 15,
-        "networkRx": 13,
-        "networkTx": 7
-      },
-      {
-        "timestamp": "2026-07-06T21:26:21.860Z",
-        "cpu": 2,
-        "memory": 5,
-        "disk": 15,
-        "networkRx": 20,
-        "networkTx": 10
-      },
-      {
-        "timestamp": "2026-07-06T21:26:21.862Z",
-        "cpu": 4,
-        "memory": 5,
-        "disk": 15,
-        "networkRx": 17,
-        "networkTx": 12
-      },
       {
         "timestamp": "2026-07-06T21:26:27.859Z",
         "cpu": 2,
@@ -1780,6 +1636,150 @@
         "disk": 15,
         "networkRx": 25,
         "networkTx": 13
+      },
+      {
+        "timestamp": "2026-07-06T22:10:24.212Z",
+        "cpu": 1,
+        "memory": 18,
+        "disk": 15,
+        "networkRx": 21,
+        "networkTx": 5
+      },
+      {
+        "timestamp": "2026-07-06T22:10:24.213Z",
+        "cpu": 5,
+        "memory": 18,
+        "disk": 15,
+        "networkRx": 22,
+        "networkTx": 14
+      },
+      {
+        "timestamp": "2026-07-06T22:10:30.215Z",
+        "cpu": 1,
+        "memory": 19,
+        "disk": 15,
+        "networkRx": 19,
+        "networkTx": 8
+      },
+      {
+        "timestamp": "2026-07-06T22:10:30.216Z",
+        "cpu": 2,
+        "memory": 19,
+        "disk": 15,
+        "networkRx": 21,
+        "networkTx": 10
+      },
+      {
+        "timestamp": "2026-07-06T22:10:36.217Z",
+        "cpu": 3,
+        "memory": 4,
+        "disk": 15,
+        "networkRx": 14,
+        "networkTx": 14
+      },
+      {
+        "timestamp": "2026-07-06T22:10:36.219Z",
+        "cpu": 5,
+        "memory": 4,
+        "disk": 15,
+        "networkRx": 21,
+        "networkTx": 14
+      },
+      {
+        "timestamp": "2026-07-06T22:10:42.214Z",
+        "cpu": 3,
+        "memory": 5,
+        "disk": 15,
+        "networkRx": 22,
+        "networkTx": 13
+      },
+      {
+        "timestamp": "2026-07-06T22:10:42.215Z",
+        "cpu": 5,
+        "memory": 5,
+        "disk": 15,
+        "networkRx": 23,
+        "networkTx": 11
+      },
+      {
+        "timestamp": "2026-07-06T22:10:48.215Z",
+        "cpu": 5,
+        "memory": 4,
+        "disk": 15,
+        "networkRx": 16,
+        "networkTx": 8
+      },
+      {
+        "timestamp": "2026-07-06T22:10:48.215Z",
+        "cpu": 4,
+        "memory": 4,
+        "disk": 15,
+        "networkRx": 24,
+        "networkTx": 12
+      },
+      {
+        "timestamp": "2026-07-06T22:10:54.216Z",
+        "cpu": 1,
+        "memory": 4,
+        "disk": 15,
+        "networkRx": 25,
+        "networkTx": 9
+      },
+      {
+        "timestamp": "2026-07-06T22:10:54.219Z",
+        "cpu": 1,
+        "memory": 4,
+        "disk": 15,
+        "networkRx": 15,
+        "networkTx": 6
+      },
+      {
+        "timestamp": "2026-07-06T22:11:01.042Z",
+        "cpu": 3,
+        "memory": 7,
+        "disk": 15,
+        "networkRx": 19,
+        "networkTx": 8
+      },
+      {
+        "timestamp": "2026-07-06T22:11:01.044Z",
+        "cpu": 5,
+        "memory": 7,
+        "disk": 15,
+        "networkRx": 25,
+        "networkTx": 5
+      },
+      {
+        "timestamp": "2026-07-06T22:11:07.048Z",
+        "cpu": 5,
+        "memory": 6,
+        "disk": 15,
+        "networkRx": 14,
+        "networkTx": 8
+      },
+      {
+        "timestamp": "2026-07-06T22:11:07.051Z",
+        "cpu": 1,
+        "memory": 6,
+        "disk": 15,
+        "networkRx": 14,
+        "networkTx": 5
+      },
+      {
+        "timestamp": "2026-07-06T22:11:13.049Z",
+        "cpu": 3,
+        "memory": 2,
+        "disk": 15,
+        "networkRx": 15,
+        "networkTx": 8
+      },
+      {
+        "timestamp": "2026-07-06T22:11:13.050Z",
+        "cpu": 2,
+        "memory": 2,
+        "disk": 15,
+        "networkRx": 26,
+        "networkTx": 7
       }
     ],
     "commands": [
@@ -1885,8 +1885,8 @@
       "architecture": "wasm/v8",
       "timezone": "Europe/London",
       "locale": "en-GB",
-      "uptime": 7,
-      "lastBoot": "2026-07-06T21:29:39.648Z",
+      "uptime": 5,
+      "lastBoot": "2026-07-06T22:10:55.969Z",
       "loggedUser": "Web Operator",
       "manufacturer": "Google Inc.",
       "model": "HTML5 Browser Tab Viewport",
@@ -1903,7 +1903,7 @@
       },
       "memory": {
         "total": 17179869184,
-        "used": 195450573
+        "used": 333509482
       },
       "disks": [
         {
