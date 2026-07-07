@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <script>
+      // Prevent read-only window.fetch errors in iframe sandboxes
+      (function() {
+        try {
+          if (typeof window !== 'undefined' && 'fetch' in window) {
+            let currentFetch = window.fetch;
+            const descriptor = {
+              get() {
+                return currentFetch;
+              },
+              set(val) {
+                currentFetch = val;
+              },
+              configurable: true,
+              enumerable: true
+            };
+            
+            // Try defining on window
+            try {
+              Object.defineProperty(window, 'fetch', descriptor);
+            } catch (e1) {
+              // Fallback to Window.prototype
+              try {
+                Object.defineProperty(Window.prototype, 'fetch', descriptor);
+              } catch (e2) {
+                // Fallback to globalThis
+                if (typeof globalThis !== 'undefined') {
+                  try {
+                    Object.defineProperty(globalThis, 'fetch', descriptor);
+                  } catch (e3) {
+                    console.warn('Could not define fetch getter/setter:', e3);
+                  }
+                }
+              }
+            }
+          }
+        } catch (e) {
+          console.warn('Could not initialize fetch interceptor:', e);
+        }
+      })();
+    </script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Kynren Assets Register</title>
+    <script type="module" crossorigin src="/assets-register/assets/index-Bq2mGy8i.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets-register/assets/index-C6Txcske.css">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
+
