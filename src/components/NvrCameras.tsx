@@ -38,7 +38,10 @@ import {
   Trash2,
   Edit,
   Check,
-  Terminal
+  Terminal,
+  Minimize2,
+  X,
+  Signal
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { db, doc, setDoc, getDoc } from '../firebase';
@@ -68,6 +71,12 @@ interface CameraChannel {
   motionLevel: number;
   location: string;
   ptzOffset: { x: number; y: number; zoom: number; focusBlur: number };
+  subnetMask: string;
+  gateway: string;
+  group?: string;
+  latency?: number;
+  signalStrength?: number;
+  latencyHistory?: number[];
 }
 
 interface NvrConfig {
@@ -85,6 +94,8 @@ interface NvrConfig {
   hddTotal: number;
   hddUsed: number;
   status: 'online' | 'offline';
+  subnetMask?: string;
+  gateway?: string;
 }
 
 interface SnapshotCapture {
@@ -201,6 +212,141 @@ function CameraSnapshotVisualizer({ cameraId, cameraType = 'dome', motionLevel, 
   );
 }
 
+interface CameraVideoPlayerProps {
+  stream: MediaStream | null;
+  cameraType: string;
+}
+
+function CameraVideoPlayer({ stream, cameraType }: CameraVideoPlayerProps) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    let active = true;
+    if (videoRef.current && stream) {
+      videoRef.current.srcObject = stream;
+      videoRef.current.play().catch(err => {
+        console.warn("Auto-play was prevented by browser:", err);
+      });
+    }
+    return () => {
+      active = false;
+    };
+  }, [stream]);
+
+  if (!stream) {
+    return (
+      <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-950 text-slate-500 text-[10px] font-mono p-4 text-center">
+        <VideoOff className="w-6 h-6 mb-1 text-slate-700 animate-pulse" />
+        <span>CONNECTING PHYSICAL HARDWARE...</span>
+        <span className="text-[8px] text-slate-800 mt-0.5">Please allow webcam access if prompted</span>
+      </div>
+    );
+  }
+
+  let filterClass = "";
+  if (cameraType === 'thermal') {
+    filterClass = "hue-rotate-180 saturate-200 contrast-150 brightness-110";
+  } else if (cameraType === 'ptz') {
+    filterClass = "grayscale contrast-125 brightness-95";
+  } else if (cameraType === 'bullet') {
+    filterClass = "grayscale sepia saturate-200 contrast-120 hue-rotate-[60deg] brightness-110";
+  } else if (cameraType === 'fisheye') {
+    filterClass = "scale-110 object-cover";
+  } else {
+    filterClass = "contrast-110 brightness-105 saturate-[1.10]";
+  }
+
+  return (
+    <div className="absolute inset-0 w-full h-full bg-black overflow-hidden flex items-center justify-center">
+      <video
+        ref={videoRef}
+        autoPlay
+        playsInline
+        muted
+        className={`w-full h-full object-cover transition-all ${filterClass}`}
+        style={cameraType === 'fisheye' ? { borderRadius: '50%', aspectRatio: '1/1' } : {}}
+      />
+      <div className="absolute inset-0 pointer-events-none border border-emerald-500/10" />
+    </div>
+  );
+}
+
+interface SparklineProps {
+  data: number[];
+  width?: number;
+  height?: number;
+  color?: string;
+}
+
+function LatencySparkline({ data, width = 80, height = 20, color = '#10b981' }: SparklineProps) {
+  if (!data || data.length === 0) {
+    return <span className="text-[8px] text-slate-500 font-mono">No telemetry</span>;
+  }
+
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const range = max - min === 0 ? 1 : max - min;
+
+  // Generate SVG coordinates
+  const points = data.map((val, idx) => {
+    const x = (idx / (data.length - 1)) * width;
+    // Invert y because SVG y=0 is at the top
+    const y = height - ((val - min) / range) * (height - 4) - 2;
+    return `${x},${y}`;
+  }).join(' ');
+
+  // Generate a unique ID to prevent gradient collisions
+  const gradId = React.useId().replace(/:/g, "-");
+
+  return (
+    <div className="flex flex-col items-end shrink-0 select-none">
+      <svg width={width} height={height} className="overflow-visible">
+        {/* Glow effect filter */}
+        <defs>
+          <filter id={`glow-${gradId}`} x="-20%" y="-20%" width="140%" height="140%">
+            <feGaussianBlur stdDeviation="0.8" result="blur" />
+            <feComposite in="SourceGraphic" in2="blur" operator="over" />
+          </filter>
+          <linearGradient id={`area-${gradId}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity={0.25} />
+            <stop offset="100%" stopColor={color} stopOpacity={0} />
+          </linearGradient>
+        </defs>
+        {/* Area under curve (filled path) */}
+        {data.length > 1 && (
+          <path
+            d={`M 0,${height} L ${points} L ${width},${height} Z`}
+            fill={`url(#area-${gradId})`}
+          />
+        )}
+        {/* Main sparkline path */}
+        <polyline
+          fill="none"
+          stroke={color}
+          strokeWidth="1.25"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          points={points}
+          filter={`url(#glow-${gradId})`}
+        />
+        {/* Last data point marker */}
+        {data.length > 0 && (
+          <circle
+            cx={width}
+            cy={height - ((data[data.length - 1] - min) / range) * (height - 4) - 2}
+            r="1.75"
+            fill={color}
+            className="animate-pulse"
+          />
+        )}
+      </svg>
+      <span className="text-[7px] text-slate-500 font-mono mt-0.5 leading-none">
+        {min}-{max}ms
+      </span>
+    </div>
+  );
+}
+
 export default function NvrCameras({ addToast: parentToast, sessionUser }: NvrCamerasProps) {
   const userRole = sessionUser?.role || 'Observer';
   const canModifyAssets = userRole === 'Admin' || userRole === 'Super Admin' || userRole === 'Technician';
@@ -209,8 +355,60 @@ export default function NvrCameras({ addToast: parentToast, sessionUser }: NvrCa
   // Local toasts fallback
   const [localToasts, setLocalToasts] = useState<Array<{ id: string; message: string; type: 'success' | 'info' | 'warn' }>>([]);
 
+  const [liveStream, setLiveStream] = useState<MediaStream | null>(null);
+
+  useEffect(() => {
+    navigator.mediaDevices.getUserMedia({ video: true })
+      .then(stream => {
+        setLiveStream(stream);
+      })
+      .catch(err => {
+        console.warn("Camera permission not granted yet or no webcam found:", err);
+      });
+    return () => {
+      if (liveStream) {
+        liveStream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, []);
+
   // New features state
   const [searchQuery, setSearchQuery] = useState('');
+  const [gridCardScale, setGridCardScale] = useState<number>(1.0);
+  const [selectedPlaybackCameraId, setSelectedPlaybackCameraId] = useState<string>('');
+  const [modelFilter, setModelFilter] = useState<string>('all');
+  const [subnetFilter, setSubnetFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [groupFilter, setGroupFilter] = useState<string>('all');
+
+  // View Presets State
+  const [viewPresets, setViewPresets] = useState<any[]>(() => {
+    const local = localStorage.getItem('ivms_view_presets');
+    if (local) {
+      try {
+        return JSON.parse(local);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    return [
+      {
+        id: 'preset-all-perimeter',
+        name: 'All Perimeter',
+        gridLayout: 4,
+        gridBindings: { 0: 'cam-01', 1: 'cam-02', 2: 'cam-03' }
+      },
+      {
+        id: 'preset-north-gate',
+        name: 'North Gate Focus',
+        gridLayout: 1,
+        gridBindings: { 0: 'cam-01' }
+      }
+    ];
+  });
+  const [newPresetName, setNewPresetName] = useState('');
+  const [showSavePresetModal, setShowSavePresetModal] = useState(false);
+
   const [snapshotHistory, setSnapshotHistory] = useState<SnapshotCapture[]>([]);
   const [selectedCameraForHistory, setSelectedCameraForHistory] = useState<CameraChannel | null>(null);
   const [thumbnailRefreshTime, setThumbnailRefreshTime] = useState(5);
@@ -281,6 +479,11 @@ export default function NvrCameras({ addToast: parentToast, sessionUser }: NvrCa
   const [nvrs, setNvrs] = useState<NvrConfig[]>([]);
   const [selectedNvrId, setSelectedNvrId] = useState<string>('');
   const [channels, setChannels] = useState<CameraChannel[]>([]);
+
+  // Selected playback camera
+  const selectedPlaybackCam = useMemo(() => {
+    return channels.find(c => c.id === selectedPlaybackCameraId) || channels[0] || null;
+  }, [channels, selectedPlaybackCameraId]);
   
   const activeNvrConfig = useMemo(() => {
     if (nvrs.length > 0) {
@@ -363,6 +566,8 @@ export default function NvrCameras({ addToast: parentToast, sessionUser }: NvrCa
   const [nvrFormUsername, setNvrFormUsername] = useState('admin');
   const [nvrFormPassword, setNvrFormPassword] = useState('Admin12345');
   const [nvrFormHddTotal, setNvrFormHddTotal] = useState(4.0);
+  const [nvrFormSubnetMask, setNvrFormSubnetMask] = useState('255.255.255.0');
+  const [nvrFormGateway, setNvrFormGateway] = useState('192.168.1.1');
 
   // Camera Form States
   const [showCameraForm, setShowCameraForm] = useState(false);
@@ -379,6 +584,53 @@ export default function NvrCameras({ addToast: parentToast, sessionUser }: NvrCa
   const [cameraFormBitrate, setCameraFormBitrate] = useState(2048);
   const [cameraFormLocation, setCameraFormLocation] = useState('');
   const [cameraFormNvrId, setCameraFormNvrId] = useState<string>('standalone');
+  const [cameraFormSubnetMask, setCameraFormSubnetMask] = useState('255.255.255.0');
+  const [cameraFormGateway, setCameraFormGateway] = useState('192.168.1.1');
+  const [cameraFormGroup, setCameraFormGroup] = useState('Default');
+
+  const autoDetectConnectedCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      if (!liveStream) {
+        setLiveStream(stream);
+      } else {
+        // Just keep the existing liveStream alive, and close this temporary one if it's different
+        if (stream !== liveStream) {
+          // Keep it running for the video player
+          setLiveStream(stream);
+        }
+      }
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const videoDevices = devices.filter(d => d.kind === 'videoinput');
+      
+      if (videoDevices.length > 0) {
+        const device = videoDevices[0];
+        const modelName = device.label || 'Connected HD Webcam';
+        
+        let cleanId = device.deviceId.replace(/[^a-fA-F0-9]/g, '');
+        if (cleanId.length < 12) {
+          cleanId = (cleanId + 'abcdef012345').slice(0, 12);
+        }
+        const macParts = [];
+        for (let i = 0; i < 6; i++) {
+          macParts.push(cleanId.slice(i * 2, i * 2 + 2).toUpperCase());
+        }
+        const macAddress = macParts.join(':');
+        
+        setCameraFormModel(modelName);
+        setCameraFormMac(macAddress);
+        setCameraFormName(modelName);
+        
+        triggerToast(`Auto-detected physical camera: ${modelName} (${macAddress})`, 'success');
+        return { model: modelName, mac: macAddress };
+      } else {
+        triggerToast('No connected physical video camera found.', 'warn');
+      }
+    } catch (err) {
+      console.error('Failed to auto-detect camera:', err);
+      triggerToast('Could not access physical video device details (Permission Denied).', 'warn');
+    }
+  };
 
   // Adoption Form State
   const [adoptingNvrId, setAdoptingNvrId] = useState<string | null>(null);
@@ -427,6 +679,12 @@ export default function NvrCameras({ addToast: parentToast, sessionUser }: NvrCa
     // Sequential diagnostic steps
     addLog(`[SYSTEM-INIT] Initializing secure telemetry feed channel for ${cam.name}...`);
     await new Promise(r => setTimeout(r, 450));
+
+    addLog(`[NET-CONFIG] Routing packet stream via active interface:`);
+    addLog(`[NET-CONFIG] - Target Host IP: ${cam.ip}`);
+    addLog(`[NET-CONFIG] - Subnet Mask: ${cam.subnetMask || '255.255.255.0'}`);
+    addLog(`[NET-CONFIG] - Default Gateway: ${cam.gateway || '192.168.1.1'}`);
+    await new Promise(r => setTimeout(r, 400));
     
     addLog(`[SECURE-SOCKET] Resolving socket address host: ${cam.ip}...`);
     await new Promise(r => setTimeout(r, 400));
@@ -520,10 +778,80 @@ export default function NvrCameras({ addToast: parentToast, sessionUser }: NvrCa
     
     await new Promise(r => setTimeout(r, 350));
 
+    addLog(`[HARDWARE-QUERY] Querying physical media device details automatically...`);
+    await new Promise(r => setTimeout(r, 450));
+
+    let detectedName = cam.name;
+    let detectedModel = cam.model;
+    let detectedMac = cam.mac;
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      if (!liveStream) {
+        setLiveStream(stream);
+      }
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const videoDevices = devices.filter(d => d.kind === 'videoinput');
+      
+      if (videoDevices.length > 0) {
+        const device = videoDevices[0];
+        detectedName = device.label || 'Connected HD Webcam';
+        detectedModel = device.label || 'Connected HD Webcam';
+        
+        // Generate MAC address from deviceId
+        let cleanId = device.deviceId.replace(/[^a-fA-F0-9]/g, '');
+        if (cleanId.length < 12) {
+          cleanId = (cleanId + 'abcdef012345').slice(0, 12);
+        }
+        const macParts = [];
+        for (let i = 0; i < 6; i++) {
+          macParts.push(cleanId.slice(i * 2, i * 2 + 2).toUpperCase());
+        }
+        detectedMac = macParts.join(':');
+        
+        addLog(`[HARDWARE-QUERY] SUCCESS: Physical hardware details pulled!`);
+        addLog(`[HARDWARE-QUERY] - Device Model: "${detectedModel}"`);
+        addLog(`[HARDWARE-QUERY] - Physical MAC Address: ${detectedMac}`);
+      } else {
+        addLog(`[HARDWARE-QUERY] WARNING: No physical media device found. Defaulting connection parameters.`);
+      }
+    } catch (e) {
+      addLog(`[HARDWARE-QUERY] WARNING: Hardware query permission denied. Using virtual channel profiles.`);
+    }
+
+    // Now update state!
+    const updatedChs = channels.map(c => {
+      if (c.id === cam.id) {
+        return {
+          ...c,
+          name: detectedName,
+          model: detectedModel,
+          mac: detectedMac
+        };
+      }
+      return c;
+    });
+    setChannels(updatedChs);
+
+    setSecureTestCam(prev => {
+      if (prev && prev.id === cam.id) {
+        return {
+          ...prev,
+          name: detectedName,
+          model: detectedModel,
+          mac: detectedMac
+        };
+      }
+      return prev;
+    });
+
+    // Save updated channels profile to Firestore
+    await saveProfileToFirestore(nvrs, updatedChs);
+
     addLog(`[SYSTEM-INTEGRITY] Secure Feed Established. Connection stability index: 100%.`);
     
     setSecureTestStatus('success');
-    triggerToast(`Secure stream established successfully for ${cam.name}!`, 'success');
+    triggerToast(`Secure stream established successfully! Model & MAC pulled from device details.`, 'success');
   };
 
   // Save NVR & Camera profile to Firestore helper
@@ -602,7 +930,10 @@ export default function NvrCameras({ addToast: parentToast, sessionUser }: NvrCa
             motionDetected: false,
             motionLevel: 2,
             location: 'Front Entrance Gate',
-            ptzOffset: { x: 0, y: 0, zoom: 1, focusBlur: 0 }
+            ptzOffset: { x: 0, y: 0, zoom: 1, focusBlur: 0 },
+            subnetMask: '255.255.255.0',
+            gateway: `${subnetPrefix}.1`,
+            group: 'Entrance'
           },
           {
             id: 'cam-02',
@@ -622,7 +953,10 @@ export default function NvrCameras({ addToast: parentToast, sessionUser }: NvrCa
             motionDetected: false,
             motionLevel: 5,
             location: 'Employee Parking Area',
-            ptzOffset: { x: 0, y: 0, zoom: 1, focusBlur: 0 }
+            ptzOffset: { x: 0, y: 0, zoom: 1, focusBlur: 0 },
+            subnetMask: '255.255.255.0',
+            gateway: `${subnetPrefix}.1`,
+            group: 'Parking'
           },
           {
             id: 'cam-03',
@@ -642,7 +976,10 @@ export default function NvrCameras({ addToast: parentToast, sessionUser }: NvrCa
             motionDetected: false,
             motionLevel: 10,
             location: 'Stage Left Perimeter',
-            ptzOffset: { x: 12, y: -5, zoom: 3, focusBlur: 0 }
+            ptzOffset: { x: 12, y: -5, zoom: 3, focusBlur: 0 },
+            subnetMask: '255.255.255.0',
+            gateway: `${subnetPrefix}.1`,
+            group: 'Perimeter'
           },
           {
             id: 'cam-04',
@@ -662,7 +999,10 @@ export default function NvrCameras({ addToast: parentToast, sessionUser }: NvrCa
             motionDetected: false,
             motionLevel: 0,
             location: 'North Outer Wall',
-            ptzOffset: { x: 0, y: 0, zoom: 1, focusBlur: 0 }
+            ptzOffset: { x: 0, y: 0, zoom: 1, focusBlur: 0 },
+            subnetMask: '255.255.255.0',
+            gateway: `${subnetPrefix}.1`,
+            group: 'Perimeter'
           }
         ];
 
@@ -689,6 +1029,129 @@ export default function NvrCameras({ addToast: parentToast, sessionUser }: NvrCa
   const [selectedGridPane, setSelectedGridPane] = useState<number>(0);
   // Maps grid index to camera channel ID
   const [gridBindings, setGridBindings] = useState<Record<number, string>>({});
+  const [isGridFullScreen, setIsGridFullScreen] = useState<boolean>(false);
+
+  const removeCameraFromGrid = (paneIdx: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setGridBindings(prev => {
+      const updated = { ...prev };
+      delete updated[paneIdx];
+      return updated;
+    });
+    triggerToast(`Camera removed from grid slot ${paneIdx + 1}`, 'info');
+  };
+
+  // Drag and drop state for reordering channels in the grid
+  const [draggedPaneIdx, setDraggedPaneIdx] = useState<number | null>(null);
+  const [dragOverPaneIdx, setDragOverPaneIdx] = useState<number | null>(null);
+
+  const handleDragStart = (e: React.DragEvent, paneIdx: number) => {
+    e.dataTransfer.setData('text/plain', paneIdx.toString());
+    e.dataTransfer.effectAllowed = 'move';
+    setDraggedPaneIdx(paneIdx);
+  };
+
+  const handleDragOver = (e: React.DragEvent, paneIdx: number) => {
+    e.preventDefault();
+    if (dragOverPaneIdx !== paneIdx) {
+      setDragOverPaneIdx(paneIdx);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent, targetIdx: number) => {
+    e.preventDefault();
+    const sourceIdxStr = e.dataTransfer.getData('text/plain');
+    if (sourceIdxStr === '') return;
+    const sourceIdx = parseInt(sourceIdxStr, 10);
+    
+    setDraggedPaneIdx(null);
+    setDragOverPaneIdx(null);
+
+    if (sourceIdx === targetIdx) return;
+
+    setGridBindings(prev => {
+      const next = { ...prev };
+      const sourceCamId = prev[sourceIdx];
+      const targetCamId = prev[targetIdx];
+
+      if (sourceCamId) {
+        next[targetIdx] = sourceCamId;
+      } else {
+        delete next[targetIdx];
+      }
+
+      if (targetCamId) {
+        next[sourceIdx] = targetCamId;
+      } else {
+        delete next[sourceIdx];
+      }
+
+      return next;
+    });
+    triggerToast(`Swapped camera feeds between Slot ${sourceIdx + 1} and Slot ${targetIdx + 1}`, 'success');
+  };
+
+  const handleDragEnd = () => {
+    setDraggedPaneIdx(null);
+    setDragOverPaneIdx(null);
+  };
+
+  // Bulk selection state for registered IP cameras
+  const [selectedCameraIds, setSelectedCameraIds] = useState<string[]>([]);
+
+  const toggleSelectCamera = (id: string) => {
+    setSelectedCameraIds(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAll = () => {
+    if (selectedCameraIds.length === channels.length) {
+      setSelectedCameraIds([]);
+    } else {
+      setSelectedCameraIds(channels.map(c => c.id));
+    }
+  };
+
+  const handleBulkToggleLive = async () => {
+    if (selectedCameraIds.length === 0) return;
+    if (!canModifyAssets) {
+      triggerToast(`Access Denied: Role [${userRole}] cannot modify camera assets.`, 'warn');
+      return;
+    }
+    const updatedChannels = channels.map(ch => {
+      if (selectedCameraIds.includes(ch.id)) {
+        const nextStatus = ch.status === 'online' ? 'offline' : 'online';
+        return { ...ch, status: nextStatus };
+      }
+      return ch;
+    });
+    setChannels(updatedChannels);
+    await saveProfileToFirestore(nvrs, updatedChannels);
+    triggerToast(`Toggled live status for ${selectedCameraIds.length} camera(s)`, 'success');
+    setSelectedCameraIds([]);
+  };
+
+  const handleBulkRemove = async () => {
+    if (selectedCameraIds.length === 0) return;
+    if (!canModifyAssets) {
+      triggerToast(`Access Denied: Role [${userRole}] cannot delete camera assets.`, 'warn');
+      return;
+    }
+    if (!window.confirm(`Are you sure you want to remove the ${selectedCameraIds.length} selected camera feeds?`)) {
+      return;
+    }
+    const updatedChannels = channels.filter(ch => !selectedCameraIds.includes(ch.id));
+    const updatedNvrs = nvrs.map(n => {
+      const activeCount = updatedChannels.filter(c => c.nvrId === n.id).length;
+      return { ...n, activeChannels: activeCount };
+    });
+    setChannels(updatedChannels);
+    setNvrs(updatedNvrs);
+    await saveProfileToFirestore(updatedNvrs, updatedChannels);
+    triggerToast(`Successfully removed ${selectedCameraIds.length} camera feed(s)`, 'warn');
+    setSelectedCameraIds([]);
+  };
 
   // PTZ Control state for the currently focused camera channel
   const [ptzSpeed, setPtzSpeed] = useState<number>(5);
@@ -711,16 +1174,86 @@ export default function NvrCameras({ addToast: parentToast, sessionUser }: NvrCa
   const [audioMuted, setAudioMuted] = useState(true);
   const [feedInterference, setFeedInterference] = useState(false);
 
-  // Filtered channels memo for search bar
+  // Filtered channels memo for search bar and dynamic filters
   const filteredChannels = useMemo(() => {
-    if (!searchQuery) return channels;
-    const q = searchQuery.toLowerCase();
-    return channels.filter(ch => 
-      ch.name.toLowerCase().includes(q) ||
-      ch.ip.toLowerCase().includes(q) ||
-      (ch.location && ch.location.toLowerCase().includes(q))
-    );
-  }, [channels, searchQuery]);
+    return channels.filter(ch => {
+      // 1. Search Query
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        const matchesSearch = ch.name.toLowerCase().includes(q) ||
+          ch.ip.toLowerCase().includes(q) ||
+          (ch.location && ch.location.toLowerCase().includes(q)) ||
+          ch.model.toLowerCase().includes(q);
+        if (!matchesSearch) return false;
+      }
+
+      // 2. Camera Model Filter (can filter by model name or camera type)
+      if (modelFilter !== 'all') {
+        const lowerModel = modelFilter.toLowerCase();
+        const matchesModel = ch.model.toLowerCase().includes(lowerModel) || ch.type.toLowerCase() === lowerModel;
+        if (!matchesModel) return false;
+      }
+
+      // 3. Subnet Filter
+      if (subnetFilter !== 'all') {
+        const subnetParts = ch.ip.split('.');
+        if (subnetParts.length === 4) {
+          const chSubnet = `${subnetParts[0]}.${subnetParts[1]}.${subnetParts[2]}`;
+          if (chSubnet !== subnetFilter) return false;
+        } else {
+          return false;
+        }
+      }
+
+      // 4. Status Filter
+      if (statusFilter !== 'all') {
+        if (statusFilter === 'active' || statusFilter === 'online') {
+          if (ch.status !== 'online') return false;
+        } else if (statusFilter === 'offline') {
+          if (ch.status !== 'offline') return false;
+        } else if (statusFilter === 'maintenance' || statusFilter === 'unactivated') {
+          if (ch.status !== 'unactivated') return false;
+        }
+      }
+
+      // 5. Group Filter
+      if (groupFilter !== 'all') {
+        const chGroup = ch.group || 'Default';
+        if (chGroup.toLowerCase() !== groupFilter.toLowerCase()) return false;
+      }
+
+      return true;
+    });
+  }, [channels, searchQuery, modelFilter, subnetFilter, statusFilter, groupFilter]);
+
+  // Dynamic lists of unique groups, subnets, and camera models/types for filter options
+  const uniqueGroups = useMemo(() => {
+    const grps = new Set<string>();
+    channels.forEach(ch => {
+      grps.add(ch.group || 'Default');
+    });
+    return Array.from(grps);
+  }, [channels]);
+
+  const uniqueSubnets = useMemo(() => {
+    const subs = new Set<string>();
+    channels.forEach(ch => {
+      const parts = ch.ip.split('.');
+      if (parts.length === 4) {
+        subs.add(`${parts[0]}.${parts[1]}.${parts[2]}`);
+      }
+    });
+    return Array.from(subs);
+  }, [channels]);
+
+  const uniqueModels = useMemo(() => {
+    const mods = new Set<string>();
+    channels.forEach(ch => {
+      if (ch.model) mods.add(ch.model);
+      if (ch.type) mods.add(ch.type);
+    });
+    return Array.from(mods);
+  }, [channels]);
 
   // Firebase logging for motion alert
   const logMotionAlert = async (cameraName: string, ip: string, level: number) => {
@@ -735,6 +1268,133 @@ export default function NvrCameras({ addToast: parentToast, sessionUser }: NvrCa
       });
     } catch (err) {
       console.error("Failed to log motion alert to Firestore:", err);
+    }
+  };
+
+  // Take an interactive high-fidelity JPEG Snapshot of a live feed for event logging
+  const handleTakeSnapshot = (cam: CameraChannel) => {
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = 640;
+      canvas.height = 360;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        triggerToast('Could not initiate HTML5 Canvas context', 'warn');
+        return;
+      }
+
+      // Draw beautiful dynamic CCTV scan layout
+      const grad = ctx.createLinearGradient(0, 0, 640, 360);
+      grad.addColorStop(0, '#090d16');
+      grad.addColorStop(1, '#020617');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, 640, 360);
+
+      // Tech Grid Pattern
+      ctx.strokeStyle = 'rgba(244, 63, 94, 0.08)';
+      ctx.lineWidth = 1;
+      for (let i = 0; i < 640; i += 40) {
+        ctx.beginPath();
+        ctx.moveTo(i, 0);
+        ctx.lineTo(i, 360);
+        ctx.stroke();
+      }
+      for (let j = 0; j < 360; j += 40) {
+        ctx.beginPath();
+        ctx.moveTo(0, j);
+        ctx.lineTo(640, j);
+        ctx.stroke();
+      }
+
+      // Target Reticle
+      ctx.strokeStyle = 'rgba(244, 63, 94, 0.25)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(320, 180, 70, 0, 2 * Math.PI);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(320, 160);
+      ctx.lineTo(320, 200);
+      ctx.moveTo(300, 180);
+      ctx.lineTo(340, 180);
+      ctx.stroke();
+
+      // Camera type icon simulation
+      ctx.fillStyle = 'rgba(244, 63, 94, 0.4)';
+      ctx.beginPath();
+      if (cam.type === 'ptz') {
+        ctx.arc(320, 180, 20, 0, 2 * Math.PI);
+      } else if (cam.type === 'dome') {
+        ctx.arc(320, 160, 18, 0, Math.PI);
+      } else {
+        ctx.rect(305, 170, 30, 20);
+      }
+      ctx.fill();
+
+      // Digital Scanline Effect
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.04)';
+      for (let y = 0; y < 360; y += 4) {
+        ctx.fillRect(0, y, 640, 2);
+      }
+
+      // Metadata overlay (Standard CCTV telemetry)
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 11px "JetBrains Mono", monospace';
+      ctx.fillText(`DEVICE: ${cam.name.toUpperCase()}`, 30, 40);
+      ctx.fillText(`ADDRESS: ${cam.ip}:${cam.port}`, 30, 58);
+      ctx.fillText(`MODEL: ${cam.model}`, 30, 76);
+      ctx.fillText(`STREAM: ${cam.resolution} @ ${cam.fps}fps`, 30, 94);
+
+      // Event Time overlay
+      const nowStr = new Date().toLocaleString();
+      ctx.fillText(`TIME: ${nowStr}`, 410, 40);
+
+      // Red blinking REC indicator
+      ctx.fillStyle = '#f43f5e';
+      ctx.beginPath();
+      ctx.arc(420, 62, 5, 0, 2 * Math.PI);
+      ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText('REC ACTIVE', 432, 66);
+
+      // Connection quality telemetry indicators
+      ctx.fillStyle = '#10b981'; // green text
+      ctx.fillText(`SYS LINK: ONLINE`, 30, 290);
+      ctx.fillText(`PING: ${cam.latency || 24}ms`, 30, 308);
+      ctx.fillText(`SIGNAL: ${cam.signalStrength || 95}%`, 30, 326);
+      ctx.fillText(`BITRATE: ${cam.bitrate} kbps`, 410, 326);
+
+      // Create downloadable JPEG image
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+
+      // Trigger automatic browser file download
+      const link = document.createElement('a');
+      link.download = `${cam.name.toLowerCase().replace(/\s+/g, '_')}_snapshot_${Date.now()}.jpg`;
+      link.href = dataUrl;
+      link.click();
+
+      // Add to snapshot log history in local storage
+      const savedSnapshotsStr = localStorage.getItem('technician_snapshots_log') || '[]';
+      const savedSnapshots = JSON.parse(savedSnapshotsStr);
+      const newLog: SnapshotCapture = {
+        id: `snap-${Date.now()}`,
+        cameraId: cam.id,
+        cameraName: cam.name,
+        timestamp: nowStr,
+        imageUrl: dataUrl,
+        motionLevel: cam.motionLevel
+      };
+      savedSnapshots.unshift(newLog);
+      localStorage.setItem('technician_snapshots_log', JSON.stringify(savedSnapshots.slice(0, 40)));
+
+      // Update local state reactive log
+      setSnapshotHistory(prev => [newLog, ...prev]);
+
+      triggerToast(`JPEG frame captured & saved for event log: [${cam.name}]`, 'success');
+    } catch (err) {
+      console.error('Failed to save snapshot JPEG frame:', err);
+      triggerToast('Snapshot failed: Direct media buffer error', 'warn');
     }
   };
 
@@ -794,7 +1454,9 @@ export default function NvrCameras({ addToast: parentToast, sessionUser }: NvrCa
       activeChannels: editingNvrId ? (nvrs.find(n => n.id === editingNvrId)?.activeChannels || 0) : 0,
       hddTotal: nvrFormHddTotal,
       hddUsed: editingNvrId ? (nvrs.find(n => n.id === editingNvrId)?.hddUsed || 1.2) : 1.2,
-      status: 'online'
+      status: 'online',
+      subnetMask: nvrFormSubnetMask || '255.255.255.0',
+      gateway: nvrFormGateway || '192.168.1.1'
     };
 
     let updatedNvrs: NvrConfig[];
@@ -816,6 +1478,8 @@ export default function NvrCameras({ addToast: parentToast, sessionUser }: NvrCa
     setNvrFormName('');
     setNvrFormIp('');
     setNvrFormMac('');
+    setNvrFormSubnetMask('255.255.255.0');
+    setNvrFormGateway('192.168.1.1');
     setEditingNvrId(null);
     setShowNvrForm(false);
   };
@@ -872,7 +1536,10 @@ export default function NvrCameras({ addToast: parentToast, sessionUser }: NvrCa
       motionLevel: 5,
       location: cameraFormLocation || 'Secure Area Perimeter',
       ptzOffset: { x: 0, y: 0, zoom: 1, focusBlur: 0 },
-      nvrId: cameraFormNvrId
+      nvrId: cameraFormNvrId,
+      subnetMask: cameraFormSubnetMask || '255.255.255.0',
+      gateway: cameraFormGateway || '192.168.1.1',
+      group: cameraFormGroup.trim() || 'Default'
     };
 
     let updatedChannels: CameraChannel[];
@@ -892,13 +1559,16 @@ export default function NvrCameras({ addToast: parentToast, sessionUser }: NvrCa
     setNvrs(updatedNvrs);
 
     await saveProfileToFirestore(updatedNvrs, updatedChannels);
-    triggerToast(`Camera ${newCam.name} registered and bound to ${newCam.nvrId === 'standalone' ? 'standalone index' : 'NVR hub'}`, 'success');
+    triggerToast(`Camera ${newCam.name} registered and bound to group "${newCam.group}"`, 'success');
 
     // Reset Form
     setCameraFormName('');
     setCameraFormIp('');
     setCameraFormMac('');
     setCameraFormLocation('');
+    setCameraFormSubnetMask('255.255.255.0');
+    setCameraFormGateway('192.168.1.1');
+    setCameraFormGroup('Default');
     setEditingCameraId(null);
     setShowCameraForm(false);
 
@@ -971,7 +1641,9 @@ export default function NvrCameras({ addToast: parentToast, sessionUser }: NvrCa
           motionLevel: 5,
           location: 'Main Entry Sentry',
           ptzOffset: { x: 0, y: 0, zoom: 1, focusBlur: 0 },
-          nvrId: adoptingNvrId
+          nvrId: adoptingNvrId,
+          subnetMask: '255.255.255.0',
+          gateway: `${prefix}.1`
         },
         {
           id: `cam-adopted-2-${Date.now()}`,
@@ -991,7 +1663,9 @@ export default function NvrCameras({ addToast: parentToast, sessionUser }: NvrCa
           motionLevel: 2,
           location: 'Cargo Loading Dock',
           ptzOffset: { x: 0, y: 0, zoom: 1, focusBlur: 0 },
-          nvrId: adoptingNvrId
+          nvrId: adoptingNvrId,
+          subnetMask: '255.255.255.0',
+          gateway: `${prefix}.1`
         },
         {
           id: `cam-adopted-3-${Date.now()}`,
@@ -1011,7 +1685,9 @@ export default function NvrCameras({ addToast: parentToast, sessionUser }: NvrCa
           motionLevel: 45,
           location: 'Outer Wall Perimeter',
           ptzOffset: { x: 0, y: 0, zoom: 1, focusBlur: 0 },
-          nvrId: adoptingNvrId
+          nvrId: adoptingNvrId,
+          subnetMask: '255.255.255.0',
+          gateway: `${prefix}.1`
         }
       ];
 
@@ -1189,12 +1865,31 @@ export default function NvrCameras({ addToast: parentToast, sessionUser }: NvrCa
           motionLvl = motion ? Math.floor(Math.random() * 80) + 10 : Math.floor(Math.random() * 8);
         }
 
+        // Dynamic latency update
+        const currentLatency = ch.latency || (15 + Math.floor(Math.random() * 25));
+        const deltaLatency = Math.floor(Math.random() * 7 - 3); // -3ms to +3ms
+        const nextLatency = Math.max(8, Math.min(120, currentLatency + deltaLatency));
+
+        // Generate or update latency history over last 60 seconds (up to 30 points)
+        const prevHistory = ch.latencyHistory && ch.latencyHistory.length > 0
+          ? ch.latencyHistory
+          : Array.from({ length: 30 }, () => Math.max(8, Math.min(120, currentLatency + Math.floor(Math.random() * 13 - 6))));
+        const nextHistory = [...prevHistory, nextLatency].slice(-30);
+
+        // Dynamic signal strength
+        const currentSignal = ch.signalStrength || (85 + Math.floor(Math.random() * 15));
+        const deltaSignal = Math.floor(Math.random() * 5 - 2); // -2 to +2
+        const nextSignal = Math.max(50, Math.min(100, currentSignal + deltaSignal));
+
         return {
           ...ch,
           bitrate: Math.max(128, dBitrate),
           fps: Math.min(30, Math.max(5, dFps)),
           motionDetected: motion,
-          motionLevel: motionLvl
+          motionLevel: motionLvl,
+          latency: nextLatency,
+          signalStrength: nextSignal,
+          latencyHistory: nextHistory
         };
       }));
 
@@ -1274,7 +1969,9 @@ export default function NvrCameras({ addToast: parentToast, sessionUser }: NvrCa
                   motionDetected: false,
                   motionLevel: 0,
                   location: 'Discovered via SADP Scan',
-                  ptzOffset: { x: 0, y: 0, zoom: 1, focusBlur: 0 }
+                  ptzOffset: { x: 0, y: 0, zoom: 1, focusBlur: 0 },
+                  subnetMask: '255.255.255.0',
+                  gateway: `${subnetPrefix}.1`
                 });
               }
             });
@@ -1311,7 +2008,9 @@ export default function NvrCameras({ addToast: parentToast, sessionUser }: NvrCa
                 motionDetected: false,
                 motionLevel: 0,
                 location: 'Unassigned Gate Post',
-                ptzOffset: { x: 0, y: 0, zoom: 1, focusBlur: 0 }
+                ptzOffset: { x: 0, y: 0, zoom: 1, focusBlur: 0 },
+                subnetMask: '255.255.255.0',
+                gateway: `${subnetPrefix}.1`
               };
               const updated = [...channels, mockSadv];
               setChannels(updated);
@@ -1495,11 +2194,41 @@ export default function NvrCameras({ addToast: parentToast, sessionUser }: NvrCa
         
         <div className="relative z-10">
           <h3 className="font-sans font-bold text-slate-100 flex items-center gap-2.5 text-base">
-            <Tv className="w-5 h-5 text-rose-500 animate-pulse" /> iVMS-4000 NVR & CCTV Console
+            <Tv className="w-5 h-5 text-rose-500 animate-pulse" /> NVR & CCTV Console
           </h3>
           <p className="text-xs text-slate-400 font-sans mt-1">
-            Hikvision-inspired client interface for Search Active Devices Protocol (SADP) scans, PTZ alignments, and live camera grid streams.
+            Hikvision-inspired client interface for Search Active Devices Protocol (Discovery) scans, PTZ alignments, and live camera grid streams.
           </p>
+        </div>
+
+        {/* CCTV Scaling & Network Scan Control Bar */}
+        <div className="flex flex-wrap items-center gap-3 bg-slate-900/90 border border-slate-800 p-3 rounded-lg relative z-10 shrink-0">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400">Card Scale:</span>
+            <input
+              type="range"
+              min="0.5"
+              max="1.5"
+              step="0.05"
+              value={gridCardScale}
+              onChange={(e) => setGridCardScale(parseFloat(e.target.value))}
+              className="w-24 h-1 bg-slate-850 rounded-lg appearance-none cursor-pointer accent-rose-500"
+              title="Scale grid view camera cards dynamically"
+            />
+            <span className="text-[10px] font-mono font-bold text-rose-500 w-8 text-right">{Math.round(gridCardScale * 100)}%</span>
+          </div>
+
+          <div className="h-6 w-px bg-slate-800 hidden sm:block" />
+
+          <button
+            type="button"
+            onClick={handleTriggerSadpScan}
+            disabled={isScanning}
+            className="px-3 py-1 bg-rose-600 hover:bg-rose-500 disabled:bg-rose-950/40 text-white text-[11px] font-bold rounded flex items-center gap-1.5 transition-all cursor-pointer shadow-[0_0_8px_rgba(244,63,94,0.15)] shrink-0"
+          >
+            <Network className={`w-3.5 h-3.5 ${isScanning ? 'animate-spin' : ''}`} />
+            <span>{isScanning ? 'Scanning...' : 'Scan Network'}</span>
+          </button>
         </div>
 
         {/* 2. AGENT BINDING PANEL (CRITICAL INTENT DIRECTIVE) */}
@@ -1540,39 +2269,117 @@ export default function NvrCameras({ addToast: parentToast, sessionUser }: NvrCa
       </div>
 
       {/* Search and Discovery Bar */}
-      <div className="bg-slate-950 p-4 rounded-xl border border-slate-850 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xl">
-        <div className="relative flex-1 max-w-xl">
-          <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-500" />
-          <input
-            type="text"
-            placeholder="Search cameras by name, IP address, or location (e.g., Gate, Stage, Dock)..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-8 py-2 bg-slate-900 border border-slate-800 rounded-lg text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-rose-500 font-mono transition-all"
-          />
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-2.5 text-slate-500 hover:text-slate-300 font-bold font-mono text-[10px] cursor-pointer"
+      <div className="bg-slate-950 p-4 rounded-xl border border-slate-850 flex flex-col gap-4 shadow-xl">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="relative flex-1 max-w-xl">
+            <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-500" />
+            <input
+              type="text"
+              placeholder="Search cameras by name, IP address, or location (e.g., Gate, Stage, Dock)..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-8 py-2 bg-slate-900 border border-slate-800 rounded-lg text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-rose-500 font-mono transition-all"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-2.5 text-slate-500 hover:text-slate-300 font-bold font-mono text-[10px] cursor-pointer"
+              >
+                CLEAR
+              </button>
+            )}
+          </div>
+          
+          {/* Results indicator */}
+          <div className="flex items-center gap-2 text-xs font-mono">
+            <span className="text-slate-500">Query Status:</span>
+            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+              filteredChannels.length === 0 
+                ? 'bg-rose-950 text-rose-400 border border-rose-900/30' 
+                : 'bg-slate-900 text-rose-400 border border-slate-800'
+            }`}>
+              {filteredChannels.length === channels.length 
+                ? `ALL ${channels.length} NODES INDEXED` 
+                : `FOUND ${filteredChannels.length} OF ${channels.length} MATCHES`
+            }
+            </span>
+          </div>
+        </div>
+
+        {/* Dynamic Filters Bar */}
+        <div className="flex flex-wrap items-center gap-4 pt-3 border-t border-slate-900/60 text-xs font-mono">
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Model/Type:</span>
+            <select
+              value={modelFilter}
+              onChange={(e) => setModelFilter(e.target.value)}
+              className="bg-slate-900 border border-slate-800 hover:border-slate-700 rounded px-2.5 py-1 text-[11px] text-slate-200 focus:outline-none focus:border-rose-500 cursor-pointer capitalize"
             >
-              CLEAR
+              <option value="all">All Models/Types</option>
+              {uniqueModels.map(m => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Subnet Segment:</span>
+            <select
+              value={subnetFilter}
+              onChange={(e) => setSubnetFilter(e.target.value)}
+              className="bg-slate-900 border border-slate-800 hover:border-slate-700 rounded px-2.5 py-1 text-[11px] text-slate-200 focus:outline-none focus:border-rose-500 cursor-pointer"
+            >
+              <option value="all">All Subnets</option>
+              {uniqueSubnets.map(s => (
+                <option key={s} value={s}>{s}.x/24</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Link Status:</span>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="bg-slate-900 border border-slate-800 hover:border-slate-700 rounded px-2.5 py-1 text-[11px] text-slate-200 focus:outline-none focus:border-rose-500 cursor-pointer"
+            >
+              <option value="all">All States</option>
+              <option value="active">Active / Online</option>
+              <option value="offline">Offline Link</option>
+              <option value="maintenance">Maintenance / Setup</option>
+            </select>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Camera Group:</span>
+            <select
+              value={groupFilter}
+              onChange={(e) => setGroupFilter(e.target.value)}
+              className="bg-slate-900 border border-slate-800 hover:border-slate-700 rounded px-2.5 py-1 text-[11px] text-slate-200 focus:outline-none focus:border-rose-500 cursor-pointer"
+            >
+              <option value="all">All Groups</option>
+              {uniqueGroups.map(g => (
+                <option key={g} value={g}>{g}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Reset Filters button */}
+          {(modelFilter !== 'all' || subnetFilter !== 'all' || statusFilter !== 'all' || groupFilter !== 'all' || searchQuery !== '') && (
+            <button
+              onClick={() => {
+                setModelFilter('all');
+                setSubnetFilter('all');
+                setStatusFilter('all');
+                setGroupFilter('all');
+                setSearchQuery('');
+                triggerToast('All channel filter parameters cleared', 'info');
+              }}
+              className="ml-auto px-2 py-1 bg-slate-900 hover:bg-slate-850 text-[10px] text-rose-400 font-bold border border-slate-800 rounded cursor-pointer transition-all hover:text-rose-300"
+            >
+              Reset Filters
             </button>
           )}
-        </div>
-        
-        {/* Results indicator */}
-        <div className="flex items-center gap-2 text-xs font-mono">
-          <span className="text-slate-500">Query Status:</span>
-          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-            filteredChannels.length === 0 
-              ? 'bg-rose-950 text-rose-400 border border-rose-900/30' 
-              : 'bg-slate-900 text-rose-400 border border-slate-800'
-          }`}>
-            {filteredChannels.length === channels.length 
-              ? `ALL ${channels.length} NODES INDEXED` 
-              : `FOUND ${filteredChannels.length} OF ${channels.length} MATCHES`
-          }
-          </span>
         </div>
       </div>
 
@@ -1581,8 +2388,8 @@ export default function NvrCameras({ addToast: parentToast, sessionUser }: NvrCa
         {[
           { id: 'live', label: 'Live Video Matrix' },
           { id: 'playback', label: 'NVR Playback Center' },
-          { id: 'sadp', label: 'SADP Discovery Protocol' },
-          { id: 'settings', label: 'iVMS Config Server' }
+          { id: 'sadp', label: 'Discovery Protocol' },
+          { id: 'settings', label: 'Config Server' }
         ].map(tab => (
           <button
             key={tab.id}
@@ -1840,6 +2647,119 @@ export default function NvrCameras({ addToast: parentToast, sessionUser }: NvrCa
                     <Camera className="w-3 h-3 text-rose-500" />
                     <span>Snap Frame</span>
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsGridFullScreen(true)}
+                    className="col-span-2 p-1.5 bg-rose-950/30 hover:bg-rose-950/50 border border-rose-900/40 hover:border-rose-900 text-rose-400 hover:text-rose-300 rounded font-mono text-center cursor-pointer flex items-center justify-center gap-1.5 transition-all font-bold"
+                  >
+                    <Maximize2 className="w-3 h-3 text-rose-500" />
+                    <span>Expand Grid (Full Screen)</span>
+                  </button>
+                </div>
+
+                {/* View Preset Manager Section */}
+                <div className="pt-2.5 border-t border-slate-900 space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-500">View Presets</span>
+                    {!showSavePresetModal ? (
+                      <button
+                        type="button"
+                        onClick={() => setShowSavePresetModal(true)}
+                        className="text-[9px] font-bold font-mono text-rose-400 hover:text-rose-300 cursor-pointer flex items-center gap-1"
+                      >
+                        + Save View
+                      </button>
+                    ) : null}
+                  </div>
+
+                  {showSavePresetModal && (
+                    <form 
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        if (!newPresetName.trim()) {
+                          triggerToast('Please provide a preset name', 'warn');
+                          return;
+                        }
+                        const newPreset = {
+                          id: `preset-${Date.now()}`,
+                          name: newPresetName.trim(),
+                          gridLayout,
+                          gridBindings: { ...gridBindings }
+                        };
+                        const nextPresets = [...viewPresets, newPreset];
+                        setViewPresets(nextPresets);
+                        localStorage.setItem('ivms_view_presets', JSON.stringify(nextPresets));
+                        setNewPresetName('');
+                        setShowSavePresetModal(false);
+                        triggerToast(`View Preset "${newPreset.name}" created`, 'success');
+                      }}
+                      className="space-y-1.5 p-1.5 bg-slate-950 border border-slate-900 rounded"
+                    >
+                      <input
+                        type="text"
+                        placeholder="Preset Name (e.g., North Gate Focus)"
+                        value={newPresetName}
+                        onChange={(e) => setNewPresetName(e.target.value)}
+                        className="w-full p-1 bg-slate-900 border border-slate-800 rounded text-[10px] font-mono text-slate-200 focus:outline-none focus:border-rose-500"
+                        autoFocus
+                      />
+                      <div className="flex justify-end gap-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowSavePresetModal(false);
+                            setNewPresetName('');
+                          }}
+                          className="px-1.5 py-0.5 bg-slate-900 hover:bg-slate-850 text-slate-400 rounded text-[9px] cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          className="px-1.5 py-0.5 bg-rose-600 hover:bg-rose-500 text-white rounded text-[9px] font-bold cursor-pointer"
+                        >
+                          Save
+                        </button>
+                      </div>
+                    </form>
+                  )}
+
+                  <div className="space-y-1 max-h-[140px] overflow-y-auto pr-0.5 custom-scrollbar">
+                    {viewPresets.map(preset => (
+                      <div
+                        key={preset.id}
+                        onClick={() => {
+                          setGridLayout(preset.gridLayout);
+                          setGridBindings(preset.gridBindings);
+                          triggerToast(`Loaded view preset: ${preset.name}`, 'success');
+                        }}
+                        className="p-1.5 bg-slate-900/60 hover:bg-rose-950/20 border border-slate-850 hover:border-rose-900/30 rounded flex items-center justify-between text-[10px] font-mono text-slate-300 hover:text-rose-300 cursor-pointer transition-all"
+                      >
+                        <div className="flex items-center gap-1.5 truncate">
+                          <LayoutGrid className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                          <span className="truncate font-bold">{preset.name}</span>
+                          <span className="text-[8px] text-slate-500 font-normal">({preset.gridLayout === 1 ? '1x1' : preset.gridLayout === 4 ? '2x2' : '3x3'})</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const next = viewPresets.filter(p => p.id !== preset.id);
+                            setViewPresets(next);
+                            localStorage.setItem('ivms_view_presets', JSON.stringify(next));
+                            triggerToast('View Preset deleted', 'info');
+                          }}
+                          className="text-slate-500 hover:text-rose-400 p-0.5 cursor-pointer"
+                          title="Delete Preset"
+                        >
+                          <X className="w-2.5 h-2.5" />
+                        </button>
+                      </div>
+                    ))}
+                    {viewPresets.length === 0 && (
+                      <div className="text-[9px] text-slate-600 font-mono italic text-center py-1">No custom presets saved yet.</div>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
@@ -1854,12 +2774,35 @@ export default function NvrCameras({ addToast: parentToast, sessionUser }: NvrCa
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
               
               {/* Camera Video Stream Grid Matrix */}
-              <div className="xl:col-span-2 space-y-3">
+              <div 
+                className={isGridFullScreen 
+                  ? "fixed inset-0 z-50 bg-slate-950 p-6 flex flex-col gap-4 overflow-auto animate-fade-in" 
+                  : "xl:col-span-2 space-y-3"
+                }
+              >
+                {isGridFullScreen && (
+                  <div className="flex justify-between items-center text-slate-300 font-mono text-xs border-b border-slate-900 pb-3">
+                    <div className="flex items-center gap-2">
+                      <LayoutGrid className="w-4 h-4 text-rose-500" />
+                      <span className="font-bold text-slate-100 uppercase tracking-widest text-sm">CCTV Live Stream Monitor Matrix</span>
+                    </div>
+                    <button 
+                      onClick={() => setIsGridFullScreen(false)}
+                      className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-slate-200 hover:text-white rounded cursor-pointer flex items-center gap-1.5 transition-all text-[11px] font-bold"
+                    >
+                      <Minimize2 className="w-3.5 h-3.5" />
+                      <span>Exit Full Screen</span>
+                    </button>
+                  </div>
+                )}
+
                 <div 
                   className={`grid gap-2 bg-black border-4 border-slate-950 rounded-xl overflow-hidden relative shadow-2xl ${
+                    isGridFullScreen ? "flex-1 h-full" : ""
+                  } ${
                     gridLayout === 1 ? 'grid-cols-1' : gridLayout === 4 ? 'grid-cols-2' : 'grid-cols-3'
                   }`}
-                  style={{ minHeight: '480px' }}
+                  style={isGridFullScreen ? {} : { minHeight: '480px' }}
                 >
                   {/* Digital Overlay scanline interference */}
                   {feedInterference && (
@@ -1878,13 +2821,27 @@ export default function NvrCameras({ addToast: parentToast, sessionUser }: NvrCa
                       <div
                         key={paneIdx}
                         onClick={() => setSelectedGridPane(paneIdx)}
-                        className={`relative aspect-video flex flex-col justify-between p-2.5 overflow-hidden transition-all group cursor-pointer ${
+                        draggable={!!ch}
+                        onDragStart={(e) => handleDragStart(e, paneIdx)}
+                        onDragOver={(e) => handleDragOver(e, paneIdx)}
+                        onDrop={(e) => handleDrop(e, paneIdx)}
+                        onDragEnd={handleDragEnd}
+                        className={`relative aspect-video flex flex-col justify-between p-2.5 overflow-hidden transition-all duration-250 group cursor-pointer ${
                           isOffline ? 'bg-slate-950' : 'bg-slate-900'
                         } ${
                           isSelectedPane 
-                            ? 'ring-2 ring-rose-500 z-10 shadow-[0_0_12px_rgba(244,63,94,0.3)]' 
+                            ? 'ring-2 ring-rose-500 shadow-[0_0_12px_rgba(244,63,94,0.3)]' 
                             : 'ring-1 ring-slate-800 hover:ring-slate-700'
+                        } ${
+                          draggedPaneIdx === paneIdx ? 'opacity-40 scale-95 border-dashed border-rose-500/50' : ''
+                        } ${
+                          dragOverPaneIdx === paneIdx ? 'ring-2 ring-emerald-500 ring-dashed scale-[1.02] bg-emerald-950/20' : ''
                         }`}
+                        style={{
+                          transform: `scale(${gridCardScale})`,
+                          transformOrigin: 'center',
+                          zIndex: isSelectedPane ? 40 : 10
+                        }}
                       >
                         {/* Selected overlay halo */}
                         {isSelectedPane && (
@@ -1899,12 +2856,37 @@ export default function NvrCameras({ addToast: parentToast, sessionUser }: NvrCa
                             <span className="text-slate-100 font-bold truncate max-w-[110px]">{ch ? ch.name : 'NO LINKED CHANNEL'}</span>
                           </div>
 
-                          {!isOffline && ch && (
-                            <div className="flex items-center gap-1.5 bg-black/60 px-1.5 py-0.5 rounded backdrop-blur-xs">
-                              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
-                              <span className="text-rose-400 font-bold">REC</span>
-                            </div>
-                          )}
+                          <div className="flex items-center gap-1.5">
+                            {!isOffline && ch && (
+                              <div className="flex items-center gap-1.5 bg-black/60 px-1.5 py-0.5 rounded backdrop-blur-xs">
+                                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+                                <span className="text-rose-400 font-bold">REC</span>
+                              </div>
+                            )}
+                            {ch && (
+                              <div className="flex items-center gap-1 bg-black/60 p-0.5 rounded backdrop-blur-xs">
+                                {!isOffline && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleTakeSnapshot(ch);
+                                    }}
+                                    className="hover:bg-emerald-955 text-slate-300 hover:text-emerald-400 p-1 rounded cursor-pointer transition-colors"
+                                    title="Capture JPEG Snapshot & Log Event"
+                                  >
+                                    <Camera className="w-2.5 h-2.5" />
+                                  </button>
+                                )}
+                                <button
+                                  onClick={(e) => removeCameraFromGrid(paneIdx, e)}
+                                  className="hover:bg-rose-950 text-slate-400 hover:text-rose-300 p-1 rounded cursor-pointer transition-colors"
+                                  title="Remove camera from grid"
+                                >
+                                  <X className="w-2.5 h-2.5" />
+                                </button>
+                              </div>
+                            )}
+                          </div>
                         </div>
 
                         {/* Center Visual feed viewport */}
@@ -1920,7 +2902,7 @@ export default function NvrCameras({ addToast: parentToast, sessionUser }: NvrCa
                               </p>
                             </div>
                           ) : (
-                            /* Simulated live CCTV graphic vector feed overlay */
+                            /* Real live webcam feed with digital filters and overlays */
                             <div 
                               className="w-full h-full relative overflow-hidden transition-transform duration-200"
                               style={{
@@ -1928,19 +2910,8 @@ export default function NvrCameras({ addToast: parentToast, sessionUser }: NvrCa
                                 filter: `blur(${ch.ptzOffset.focusBlur}px)`
                               }}
                             >
-                              {/* Thermal view simulation background */}
-                              {ch.type === 'thermal' ? (
-                                <div className="absolute inset-0 bg-radial-gradient from-amber-600 via-purple-900 to-blue-950 opacity-90 flex items-center justify-center">
-                                  {/* Heated sensor contours */}
-                                  <div className="w-24 h-24 rounded-full bg-red-500/40 filter blur-xl animate-pulse absolute left-1/4 top-1/3" />
-                                  <div className="w-16 h-16 rounded-full bg-yellow-400/50 filter blur-lg animate-bounce absolute right-1/4 bottom-1/4" />
-                                </div>
-                              ) : (
-                                <div className="absolute inset-0 bg-slate-900 flex items-center justify-center">
-                                  {/* Camera Grid lines background */}
-                                  <div className="absolute inset-0 bg-[radial-gradient(#1e293b_1px,transparent_1px)] bg-[size:10px_10px] opacity-40" />
-                                </div>
-                              )}
+                              {/* Actual physical hardware video feed */}
+                              <CameraVideoPlayer stream={liveStream} cameraType={ch.type} />
 
                               {/* Target Crosshairs */}
                               <div className="absolute inset-0 border border-slate-800/10 flex items-center justify-center pointer-events-none">
@@ -1975,7 +2946,7 @@ export default function NvrCameras({ addToast: parentToast, sessionUser }: NvrCa
 
                         {/* Bottom Overlay stats */}
                         {!isOffline && ch && (
-                          <div className="z-10 font-mono text-[8px] text-slate-400 drop-shadow-[0_1px_2px_rgba(0,0,0,0.95)] space-y-0.5 bg-black/40 p-1 rounded backdrop-blur-xs">
+                          <div className="z-10 font-mono text-[8px] text-slate-400 drop-shadow-[0_1px_2px_rgba(0,0,0,0.95)] space-y-0.5 bg-black/40 p-1.5 rounded backdrop-blur-xs">
                             <div className="flex justify-between">
                               <span className="text-emerald-400 font-bold">{ch.ip}</span>
                               <span>{ch.resolution} @ {ch.fps}fps</span>
@@ -1983,6 +2954,30 @@ export default function NvrCameras({ addToast: parentToast, sessionUser }: NvrCa
                             <div className="flex justify-between text-slate-500">
                               <span>MAC: {ch.mac}</span>
                               <span className="text-cyan-400">{ch.bitrate} Kbps</span>
+                            </div>
+                            <div className="flex justify-between items-center text-[8px] border-t border-slate-800/40 pt-1 mt-1">
+                              <span className="flex items-center gap-1 text-slate-300">
+                                <span className={`w-1.5 h-1.5 rounded-full shadow-[0_0_4px_currentColor] ${
+                                  (ch.latency || 0) < 25 
+                                    ? 'bg-emerald-500 text-emerald-500 animate-pulse' 
+                                    : (ch.latency || 0) < 55 
+                                      ? 'bg-amber-500 text-amber-500' 
+                                      : 'bg-rose-500 text-rose-500 animate-ping'
+                                }`} />
+                                Latency: <strong className={
+                                  (ch.latency || 0) < 25 
+                                    ? 'text-emerald-400' 
+                                    : (ch.latency || 0) < 55 
+                                      ? 'text-amber-400' 
+                                      : 'text-rose-400'
+                                }>{ch.latency || 24} ms</strong>
+                              </span>
+                              <span className="flex items-center gap-1 text-slate-300">
+                                <span className="text-[7px] text-slate-500 uppercase tracking-wider">Latency 60s:</span>
+                                <LatencySparkline data={ch.latencyHistory || []} width={55} height={10} color={
+                                  (ch.latency || 0) < 25 ? '#10b981' : (ch.latency || 0) < 55 ? '#f59e0b' : '#f43f5e'
+                                } />
+                              </span>
                             </div>
                           </div>
                         )}
@@ -1995,7 +2990,7 @@ export default function NvrCameras({ addToast: parentToast, sessionUser }: NvrCa
                 <div className="p-3 bg-slate-950 rounded-xl border border-slate-850 flex items-start gap-2.5">
                   <Activity className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
                   <div className="text-xs space-y-0.5">
-                    <p className="font-mono text-slate-300 font-bold">iVMS Network Traffic Audit</p>
+                    <p className="font-mono text-slate-300 font-bold">Network Traffic Audit</p>
                     <p className="text-slate-500">
                       RTSP streams are routing through the Endpoint Security Agent <strong className="text-slate-300">{activeAgent?.hostname || 'fallback'}</strong>. Network activities, socket connections, and camera handshakes originate from Node IP <strong className="text-emerald-400">{nodeIp}</strong>.
                     </p>
@@ -2199,7 +3194,7 @@ export default function NvrCameras({ addToast: parentToast, sessionUser }: NvrCa
                         {/* Camera metadata headers */}
                         <div className="flex justify-between items-start mb-2">
                           <div className="min-w-0">
-                            <span className="text-[10px] font-mono text-slate-500 uppercase block font-bold leading-none tracking-wider">CH-0{ch.id.slice(-1)}</span>
+                            <span className="text-[10px] font-mono text-slate-500 uppercase block font-bold leading-none tracking-wider">CH-0{ch.id.slice(-1)} • <span className="text-sky-400 font-bold">{ch.group || 'Default'}</span></span>
                             <h5 className="text-xs font-semibold text-slate-200 truncate pr-2 mt-0.5" title={ch.name}>{ch.name}</h5>
                             <span className="text-[9px] font-mono text-slate-400 block truncate mt-0.5 opacity-80" title={ch.location}>{ch.location}</span>
                           </div>
@@ -2216,9 +3211,13 @@ export default function NvrCameras({ addToast: parentToast, sessionUser }: NvrCa
                           </span>
                         </div>
 
-                        {/* Rendering our spectacular CSS visualizer for the CCTV feed */}
+                        {/* Rendering our spectacular CSS visualizer or actual hardware camera video feed */}
                         <div className="relative aspect-video rounded-lg overflow-hidden bg-black mb-3">
-                          <CameraSnapshotVisualizer cameraId={ch.id} motionLevel={ch.motionLevel} size="md" />
+                          {!isOffline && ch.status === 'online' ? (
+                            <CameraVideoPlayer stream={liveStream} cameraType={ch.type} />
+                          ) : (
+                            <CameraSnapshotVisualizer cameraId={ch.id} motionLevel={ch.motionLevel} size="md" />
+                          )}
                           
                           {/* Recording Overlay dot */}
                           {!isOffline && ch.recording && (
@@ -2274,54 +3273,83 @@ export default function NvrCameras({ addToast: parentToast, sessionUser }: NvrCa
                   </div>
                 </div>
 
-                {/* Speed Controls */}
-                <div className="flex items-center gap-2 bg-slate-900 p-1.5 rounded border border-slate-850 font-mono text-[10px]">
-                  <span className="text-slate-500 uppercase px-1 font-bold">Playback Speed:</span>
-                  {[1, 2, 4, 8].map((spd) => (
-                    <button
-                      key={spd}
-                      type="button"
-                      onClick={() => {
-                        setPlaybackSpeed(spd);
-                        triggerToast(`Playback acceleration adjusted to ${spd}x`, 'info');
+                {/* Controls Area */}
+                <div className="flex flex-wrap items-center gap-4">
+                  {/* Target Node Selector */}
+                  <div className="flex items-center gap-2 bg-slate-900 p-1.5 rounded border border-slate-850 font-mono text-[10px]">
+                    <span className="text-slate-500 uppercase px-1 font-bold">Target Camera:</span>
+                    <select
+                      value={selectedPlaybackCameraId || (channels[0]?.id || '')}
+                      onChange={(e) => {
+                        setSelectedPlaybackCameraId(e.target.value);
+                        triggerToast(`Playback route mapped to camera node`, 'info');
                       }}
-                      className={`px-2 py-0.5 rounded cursor-pointer ${
-                        playbackSpeed === spd 
-                          ? 'bg-sky-600 text-white font-bold' 
-                          : 'text-slate-400 hover:text-slate-200'
-                      }`}
+                      className="bg-slate-950 border border-slate-800 rounded px-2 py-0.5 text-xs text-slate-200 font-mono focus:outline-none focus:border-sky-500 cursor-pointer"
                     >
-                      {spd}x
-                    </button>
-                  ))}
+                      {channels.map((cam) => (
+                        <option key={cam.id} value={cam.id}>
+                          {cam.name} ({cam.ip})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Speed Controls */}
+                  <div className="flex items-center gap-2 bg-slate-900 p-1.5 rounded border border-slate-850 font-mono text-[10px]">
+                    <span className="text-slate-500 uppercase px-1 font-bold">Playback Speed:</span>
+                    {[1, 2, 4, 8].map((spd) => (
+                      <button
+                        key={spd}
+                        type="button"
+                        onClick={() => {
+                          setPlaybackSpeed(spd);
+                          triggerToast(`Playback acceleration adjusted to ${spd}x`, 'info');
+                        }}
+                        className={`px-2 py-0.5 rounded cursor-pointer ${
+                          playbackSpeed === spd 
+                            ? 'bg-sky-600 text-white font-bold' 
+                            : 'text-slate-400 hover:text-slate-200'
+                        }`}
+                      >
+                        {spd}x
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
               {/* Live Playback feed frame */}
               <div className="relative aspect-video max-w-2xl mx-auto bg-black rounded-lg border-2 border-slate-900 overflow-hidden shadow-inner flex items-center justify-center">
                 
-                {/* Visual Camera render */}
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="text-center space-y-3 z-10">
+                {/* Real video player underlay for playback stream */}
+                {isPlaybackPlaying && selectedPlaybackCam && (
+                  <div className="absolute inset-0 opacity-70 filter saturate-75 sepia-[0.15] brightness-90 z-0">
+                    <CameraVideoPlayer stream={liveStream} cameraType={selectedPlaybackCam.type} />
+                  </div>
+                )}
+
+                {/* Visual Camera render overlay */}
+                <div className="absolute inset-0 flex items-center justify-center z-10">
+                  <div className="text-center space-y-3">
                     {isPlaybackPlaying ? (
-                      <div className="space-y-2">
-                        <span className="text-xs font-mono font-bold text-sky-400 uppercase tracking-widest block bg-black/60 px-4 py-1.5 rounded backdrop-blur-md">
+                      <div className="space-y-2 bg-black/75 p-4 rounded-xl border border-sky-950/40 backdrop-blur-md">
+                        <span className="text-xs font-mono font-bold text-sky-400 uppercase tracking-widest block">
                           PLAYING RECORDED STREAM FROM ARCHIVE
                         </span>
-                        <p className="text-slate-400 font-mono text-[10px]">
-                          Target File: <strong className="text-slate-200">ch1_rec_stream_{formatPlaybackTime(playbackTime).replace(/:/g, '')}.mp4</strong>
+                        <p className="text-slate-300 font-mono text-[10px]">
+                          Target File: <strong className="text-slate-100 font-bold">rec_{selectedPlaybackCam?.id || 'cam'}_{formatPlaybackTime(playbackTime).replace(/:/g, '')}.mp4</strong>
                         </p>
                         <p className="text-slate-500 font-mono text-[9px]">
                           Agent Node Pipeline Routing: {nodeIp} @ 25 FPS
                         </p>
                       </div>
                     ) : (
-                      <div className="space-y-2">
-                        <Pause className="w-10 h-10 text-slate-600 mx-auto animate-pulse" />
-                        <span className="text-xs font-mono font-bold text-slate-500 uppercase tracking-widest block">
+                      <div className="space-y-2 bg-black/75 p-4 rounded-xl border border-slate-900/40 backdrop-blur-md">
+                        <Pause className="w-10 h-10 text-slate-500 mx-auto animate-pulse" />
+                        <span className="text-xs font-mono font-bold text-slate-400 uppercase tracking-widest block">
                           PLAYBACK PAUSED
                         </span>
-                        <p className="text-[9px] text-slate-600 font-mono">
+                        <p className="text-[9px] text-slate-500 font-mono">
                           Drag the playhead or click timeline to index recorded media files.
                         </p>
                       </div>
@@ -2329,9 +3357,9 @@ export default function NvrCameras({ addToast: parentToast, sessionUser }: NvrCa
                   </div>
 
                   {/* CCTV Scanline effects */}
-                  <div className="absolute inset-0 bg-radial-gradient from-transparent to-black/80 pointer-events-none" />
-                  <div className="absolute inset-0 bg-[linear-gradient(rgba(18,24,38,0)_95%,rgba(56,189,248,0.03)_98%,rgba(18,24,38,0)_100%)] bg-[size:100%_40px] animate-[slide_15s_linear_infinite] pointer-events-none" />
-                  <div className="absolute inset-0 bg-noise opacity-[0.02] pointer-events-none" />
+                  <div className="absolute inset-0 bg-radial-gradient from-transparent to-black/80 pointer-events-none z-10" />
+                  <div className="absolute inset-0 bg-[linear-gradient(rgba(18,24,38,0)_95%,rgba(56,189,248,0.03)_98%,rgba(18,24,38,0)_100%)] bg-[size:100%_40px] animate-[slide_15s_linear_infinite] pointer-events-none z-10" />
+                  <div className="absolute inset-0 bg-noise opacity-[0.02] pointer-events-none z-10" />
                 </div>
 
                 {/* On-Screen HUD Overlay */}
@@ -2431,7 +3459,7 @@ export default function NvrCameras({ addToast: parentToast, sessionUser }: NvrCa
                 <div className="flex items-center gap-2">
                   <Network className="w-5 h-5 text-emerald-400" />
                   <div>
-                    <h4 className="font-sans font-bold text-slate-100 text-sm">SADP Device Discovery Protocol</h4>
+                    <h4 className="font-sans font-bold text-slate-100 text-sm">Device Discovery Protocol</h4>
                     <p className="text-[10px] text-slate-500 font-mono">Scan, activate, and configure CCTV hardware nodes on local agent network</p>
                   </div>
                 </div>
@@ -2443,7 +3471,7 @@ export default function NvrCameras({ addToast: parentToast, sessionUser }: NvrCa
                   className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold rounded flex items-center gap-1.5 transition-all cursor-pointer"
                 >
                   <RefreshCw className={`w-4 h-4 ${isScanning ? 'animate-spin' : ''}`} />
-                  <span>{isScanning ? 'SADP Sweeping...' : 'Run SADP Discovery Scan'}</span>
+                  <span>{isScanning ? 'Sweeping...' : 'Run Discovery Scan'}</span>
                 </button>
               </div>
 
@@ -2451,7 +3479,7 @@ export default function NvrCameras({ addToast: parentToast, sessionUser }: NvrCa
               {isScanning && (
                 <div className="bg-slate-900 border border-slate-850 p-4 rounded-xl space-y-2 animate-pulse">
                   <div className="flex justify-between items-center text-xs font-mono text-slate-300">
-                    <span>Active SADP Broadcast Sequence</span>
+                    <span>Active Broadcast Sequence</span>
                     <span className="font-bold">{scanProgress}%</span>
                   </div>
                   <div className="w-full bg-slate-950 rounded-full h-1.5 overflow-hidden">
@@ -2633,7 +3661,7 @@ export default function NvrCameras({ addToast: parentToast, sessionUser }: NvrCa
                 <div className="flex items-center gap-2">
                   <Settings className="w-5 h-5 text-purple-400 animate-spin-slow" />
                   <div>
-                    <h4 className="font-sans font-bold text-slate-100 text-sm">iVMS Config Server Settings</h4>
+                    <h4 className="font-sans font-bold text-slate-100 text-sm">Config Server Settings</h4>
                     <p className="text-[10px] text-slate-500">Configure connected NVR clusters, test camera link states, and bind security subnet segments</p>
                   </div>
                 </div>
@@ -2666,6 +3694,9 @@ export default function NvrCameras({ addToast: parentToast, sessionUser }: NvrCa
                       setCameraFormIp(`${activeNICSubnet}.121`);
                       setCameraFormMac(`E0:50:8B:4A:CF:${Math.floor(10 + Math.random() * 89)}`);
                       setCameraFormLocation('');
+                      setCameraFormSubnetMask('255.255.255.0');
+                      setCameraFormGateway('192.168.1.1');
+                      setCameraFormGroup('Default');
                       setEditingCameraId(null);
                       setShowCameraForm(!showCameraForm);
                       setShowNvrForm(false);
@@ -2832,6 +3863,30 @@ export default function NvrCameras({ addToast: parentToast, sessionUser }: NvrCa
                       </div>
 
                       <div>
+                        <label className="block mb-1 text-slate-400 text-[10px]">Subnet Mask *</label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="255.255.255.0"
+                          value={nvrFormSubnetMask}
+                          onChange={(e) => setNvrFormSubnetMask(e.target.value)}
+                          className="w-full bg-slate-950 border border-slate-800 rounded p-2 text-slate-200 focus:outline-none focus:border-purple-500 font-mono"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block mb-1 text-slate-400 text-[10px]">Default Gateway *</label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="192.168.1.1"
+                          value={nvrFormGateway}
+                          onChange={(e) => setNvrFormGateway(e.target.value)}
+                          className="w-full bg-slate-950 border border-slate-800 rounded p-2 text-slate-200 focus:outline-none focus:border-purple-500 font-mono"
+                        />
+                      </div>
+
+                      <div>
                         <label className="block mb-1 text-slate-400 text-[10px]">NVR Model Series</label>
                         <select
                           value={nvrFormModel}
@@ -2944,16 +3999,27 @@ export default function NvrCameras({ addToast: parentToast, sessionUser }: NvrCa
                         <Video className="w-4 h-4 text-rose-500" />
                         {editingCameraId ? `Edit Camera: ${cameraFormName}` : 'Register New IP Camera'}
                       </span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEditingCameraId(null);
-                          setShowCameraForm(false);
-                        }}
-                        className="text-[10px] text-slate-500 hover:text-slate-300 font-bold"
-                      >
-                        CLOSE FORM
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={autoDetectConnectedCamera}
+                          className="px-2 py-0.5 bg-rose-950 hover:bg-rose-900 border border-rose-800 text-rose-300 rounded text-[9px] font-mono font-bold flex items-center gap-1 cursor-pointer transition-all shrink-0"
+                          title="Auto-detect model and MAC of connected physical camera"
+                        >
+                          <Activity className="w-2.5 h-2.5 animate-pulse text-rose-400" />
+                          <span>Detect Hardware</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingCameraId(null);
+                            setShowCameraForm(false);
+                          }}
+                          className="text-[10px] text-slate-500 hover:text-slate-300 font-bold"
+                        >
+                          CLOSE FORM
+                        </button>
+                      </div>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -2970,6 +4036,18 @@ export default function NvrCameras({ addToast: parentToast, sessionUser }: NvrCa
                       </div>
 
                       <div>
+                        <label className="block mb-1 text-slate-400 text-[10px]">Camera Group (e.g., Entrance, Perimeter) *</label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="e.g., Entrance"
+                          value={cameraFormGroup}
+                          onChange={(e) => setCameraFormGroup(e.target.value)}
+                          className="w-full bg-slate-950 border border-slate-800 rounded p-2 text-slate-200 focus:outline-none focus:border-rose-500"
+                        />
+                      </div>
+
+                      <div>
                         <label className="block mb-1 text-slate-400 text-[10px]">IPv4 Address *</label>
                         <input
                           type="text"
@@ -2980,6 +4058,30 @@ export default function NvrCameras({ addToast: parentToast, sessionUser }: NvrCa
                           className="w-full bg-slate-950 border border-slate-800 rounded p-2 text-slate-200 focus:outline-none focus:border-rose-500 font-mono"
                         />
                         <span className="text-[9px] text-slate-500 mt-1 block">Active segment recommendation: <strong>{activeNICSubnet}.x</strong></span>
+                      </div>
+
+                      <div>
+                        <label className="block mb-1 text-slate-400 text-[10px]">Subnet Mask *</label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="255.255.255.0"
+                          value={cameraFormSubnetMask}
+                          onChange={(e) => setCameraFormSubnetMask(e.target.value)}
+                          className="w-full bg-slate-950 border border-slate-800 rounded p-2 text-slate-200 focus:outline-none focus:border-rose-500 font-mono"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block mb-1 text-slate-400 text-[10px]">Default Gateway *</label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="192.168.1.1"
+                          value={cameraFormGateway}
+                          onChange={(e) => setCameraFormGateway(e.target.value)}
+                          className="w-full bg-slate-950 border border-slate-800 rounded p-2 text-slate-200 focus:outline-none focus:border-rose-500 font-mono"
+                        />
                       </div>
 
                       <div>
@@ -3226,6 +4328,8 @@ export default function NvrCameras({ addToast: parentToast, sessionUser }: NvrCa
                                 setNvrFormMac(nvr.mac);
                                 setNvrFormFirmware(nvr.firmware);
                                 setNvrFormHddTotal(nvr.hddTotal);
+                                setNvrFormSubnetMask(nvr.subnetMask || '255.255.255.0');
+                                setNvrFormGateway(nvr.gateway || '192.168.1.1');
                                 setShowNvrForm(true);
                                 setShowCameraForm(false);
                               }}
@@ -3276,6 +4380,60 @@ export default function NvrCameras({ addToast: parentToast, sessionUser }: NvrCa
                   <span className="text-[9px] text-slate-500">Manual camera profiles bind to specific RTSP buffers on NVR or standalone targets</span>
                 </div>
 
+                {/* Bulk Action Bar */}
+                {channels.length > 0 && (
+                  <div className="bg-slate-900/60 border border-slate-850 p-2.5 rounded-xl flex flex-wrap items-center justify-between gap-3 text-xs font-mono">
+                    <div className="flex items-center gap-3">
+                      <label className="flex items-center gap-2 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={selectedCameraIds.length === channels.length && channels.length > 0}
+                          ref={(el) => {
+                            if (el) {
+                              el.indeterminate = selectedCameraIds.length > 0 && selectedCameraIds.length < channels.length;
+                            }
+                          }}
+                          onChange={handleSelectAll}
+                          className="rounded border-slate-800 bg-slate-950 text-rose-500 focus:ring-0 cursor-pointer w-3.5 h-3.5"
+                        />
+                        <span className="text-[10px] text-slate-300 font-bold">
+                          {selectedCameraIds.length === 0 
+                            ? 'Select All' 
+                            : `${selectedCameraIds.length} of ${channels.length} Selected`}
+                        </span>
+                      </label>
+                    </div>
+
+                    {selectedCameraIds.length > 0 && (
+                      <div className="flex items-center gap-2 animate-fade-in">
+                        <button
+                          type="button"
+                          onClick={handleBulkToggleLive}
+                          className="px-2.5 py-1 bg-slate-800 hover:bg-slate-750 border border-slate-700 hover:border-slate-650 text-slate-200 rounded text-[10px] font-bold cursor-pointer transition-all flex items-center gap-1.5"
+                        >
+                          <RefreshCw className="w-3 h-3 text-rose-400" />
+                          <span>Toggle Live Status</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleBulkRemove}
+                          className="px-2.5 py-1 bg-rose-950/40 hover:bg-rose-950/80 border border-rose-900/40 hover:border-rose-800 text-rose-400 rounded text-[10px] font-bold cursor-pointer transition-all flex items-center gap-1.5"
+                        >
+                          <Trash2 className="w-3 h-3 text-rose-500" />
+                          <span>Batch Remove</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedCameraIds([])}
+                          className="px-2 py-1 bg-transparent hover:text-white text-slate-500 rounded text-[10px] cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {channels.length === 0 ? (
                   <div className="py-8 text-center bg-slate-900/30 border border-dashed border-slate-850 rounded-xl space-y-2">
                     <VideoOff className="w-8 h-8 text-slate-700 mx-auto animate-pulse" />
@@ -3287,6 +4445,9 @@ export default function NvrCameras({ addToast: parentToast, sessionUser }: NvrCa
                         setCameraFormIp(`${activeNICSubnet}.121`);
                         setCameraFormMac(`E0:50:8B:4A:CF:${Math.floor(10 + Math.random() * 89)}`);
                         setCameraFormLocation('');
+                        setCameraFormSubnetMask('255.255.255.0');
+                        setCameraFormGateway('192.168.1.1');
+                        setCameraFormGroup('Default');
                         setEditingCameraId(null);
                         setShowCameraForm(true);
                       }}
@@ -3299,13 +4460,29 @@ export default function NvrCameras({ addToast: parentToast, sessionUser }: NvrCa
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {channels.map((cam) => {
                       const parentNvr = nvrs.find(n => n.id === cam.nvrId);
+                      const isSelected = selectedCameraIds.includes(cam.id);
                       return (
-                        <div key={cam.id} className="bg-slate-900/50 border border-slate-850 p-3 rounded-xl flex flex-col justify-between space-y-3.5 hover:border-slate-800 transition-all">
+                        <div 
+                          key={cam.id} 
+                          className={`bg-slate-900/50 border p-3 rounded-xl flex flex-col justify-between space-y-3.5 transition-all relative ${
+                            isSelected 
+                              ? 'border-rose-500/60 bg-rose-950/10 shadow-[0_0_8px_rgba(244,63,94,0.15)]' 
+                              : 'border-slate-850 hover:border-slate-800'
+                          }`}
+                        >
                           <div className="space-y-1">
-                            <div className="flex items-center justify-between">
-                              <span className="text-[11px] font-bold text-slate-200 flex items-center gap-1 truncate">
-                                <Video className="w-3.5 h-3.5 text-rose-500 shrink-0" /> <span className="truncate">{cam.name}</span>
-                              </span>
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-1.5 truncate">
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={() => toggleSelectCamera(cam.id)}
+                                  className="rounded border-slate-800 bg-slate-950 text-rose-500 focus:ring-0 cursor-pointer w-3.5 h-3.5 shrink-0"
+                                />
+                                <span className="text-[11px] font-bold text-slate-200 flex items-center gap-1 truncate">
+                                  <Video className="w-3.5 h-3.5 text-rose-500 shrink-0" /> <span className="truncate">{cam.name}</span>
+                                </span>
+                              </div>
                               <span className="text-[8px] font-mono px-1 py-0.2 rounded bg-slate-950 text-rose-400 shrink-0 uppercase">
                                 {cam.type}
                               </span>
@@ -3314,11 +4491,44 @@ export default function NvrCameras({ addToast: parentToast, sessionUser }: NvrCa
                             <div className="space-y-1 text-[9px] text-slate-400">
                               <div>IP Address: <strong className="text-slate-200">{cam.ip}</strong></div>
                               <div className="truncate">Location: <span className="text-slate-300 font-bold">{cam.location}</span></div>
+                              <div>Group: <span className="text-sky-400 font-bold uppercase tracking-wider text-[8px] bg-slate-950 px-1 py-0.2 rounded border border-slate-800">{cam.group || 'Default'}</span></div>
                               <div>Model Code: <span className="text-slate-500">{cam.model}</span></div>
                               <div className="truncate">Binding: <strong className={parentNvr ? 'text-purple-400' : 'text-slate-500'}>
                                 {parentNvr ? `NVR: ${parentNvr.name}` : 'Standalone Feed'}
                               </strong></div>
                             </div>
+
+                            {cam.status === 'online' ? (
+                              <div className="flex items-center justify-between border-t border-slate-950 pt-2 mt-2 text-[9px] font-mono">
+                                <span className="text-slate-400 flex items-center gap-1">
+                                  <span className={`w-1.5 h-1.5 rounded-full shadow-[0_0_4px_currentColor] ${
+                                    (cam.latency || 0) < 25 
+                                      ? 'bg-emerald-500 text-emerald-500' 
+                                      : (cam.latency || 0) < 55 
+                                        ? 'bg-amber-500 text-amber-500' 
+                                        : 'bg-rose-500 text-rose-500'
+                                  }`} />
+                                  Ping: <strong className={
+                                    (cam.latency || 0) < 25 
+                                      ? 'text-emerald-400 font-bold' 
+                                      : (cam.latency || 0) < 55 
+                                        ? 'text-amber-400 font-bold' 
+                                        : 'text-rose-400 font-bold'
+                                  }>{cam.latency || 24} ms</strong>
+                                </span>
+                                <span className="text-slate-400 flex items-center gap-1.5">
+                                  <span className="text-[7px] text-slate-500 uppercase tracking-wider">Jitter 60s:</span>
+                                  <LatencySparkline data={cam.latencyHistory || []} width={50} height={12} color={
+                                    (cam.latency || 0) < 25 ? '#10b981' : (cam.latency || 0) < 55 ? '#f59e0b' : '#f43f5e'
+                                  } />
+                                </span>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-1 border-t border-slate-950 pt-2 mt-2 text-[9px] font-mono text-slate-600">
+                                <Signal className="w-3 h-3 text-slate-700" />
+                                <span>No active signal / link offline</span>
+                              </div>
+                            )}
                           </div>
 
                           <div className="flex items-center justify-between gap-1.5 border-t border-slate-950 pt-2.5">
@@ -3339,6 +4549,9 @@ export default function NvrCameras({ addToast: parentToast, sessionUser }: NvrCa
                                   setCameraFormBitrate(cam.bitrate);
                                   setCameraFormLocation(cam.location);
                                   setCameraFormNvrId(cam.nvrId || 'standalone');
+                                  setCameraFormSubnetMask(cam.subnetMask || '255.255.255.0');
+                                  setCameraFormGateway(cam.gateway || '192.168.1.1');
+                                  setCameraFormGroup(cam.group || 'Default');
                                   setShowCameraForm(true);
                                   setShowNvrForm(false);
                                 }}
@@ -3355,6 +4568,16 @@ export default function NvrCameras({ addToast: parentToast, sessionUser }: NvrCa
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>
+                              {cam.status === 'online' && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleTakeSnapshot(cam)}
+                                  className="p-1 bg-slate-950 border border-slate-800 hover:border-emerald-900/60 hover:text-emerald-400 text-slate-400 rounded cursor-pointer flex items-center justify-center"
+                                  title="Take JPEG Snapshot & Log Event"
+                                >
+                                  <Camera className="w-3.5 h-3.5" />
+                                </button>
+                              )}
                             </div>
 
                             <div className="flex gap-1.5">
@@ -3720,9 +4943,9 @@ export default function NvrCameras({ addToast: parentToast, sessionUser }: NvrCa
                             Negotiating security credentials
                           </span>
                         </div>
-                      ) : secureTestStatus === 'success' ? (
+                      ) : (secureTestStatus === 'success' && secureTestCam) ? (
                         <div className="w-full h-full relative">
-                          <CameraSnapshotVisualizer cameraId={secureTestCam.id} cameraType={secureTestCam.type} motionLevel={12} size="lg" />
+                          <CameraVideoPlayer stream={liveStream} cameraType={secureTestCam.type} />
                           
                           {/* Live timestamp and stream metrics */}
                           <div className="absolute bottom-3 left-3 right-3 flex justify-between items-end font-mono text-[8px] bg-black/60 p-2 rounded border border-slate-900/40 text-slate-400 z-10">
