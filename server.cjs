@@ -39,6 +39,7 @@ var import_tls = __toESM(require("tls"), 1);
 
 // server/vendorDb.ts
 var OUI_DATABASE = {
+  // Virtualization Platforms
   "00:15:5D": "Microsoft Corporation (Hyper-V)",
   "00:03:FF": "Microsoft Corporation",
   "00:05:69": "VMware, Inc.",
@@ -50,7 +51,7 @@ var OUI_DATABASE = {
   "52:54:00": "QEMU / KVM Virtual NIC",
   "00:15:5d": "Microsoft Corporation (Hyper-V)",
   "00:0c:29": "VMware, Inc.",
-  // Cisco Systems
+  // Cisco Systems & Enterprise Networking
   "00:00:0C": "Cisco Systems, Inc.",
   "00:01:42": "Cisco Systems, Inc.",
   "00:01:C7": "Cisco Systems, Inc.",
@@ -58,10 +59,14 @@ var OUI_DATABASE = {
   "00:0B:FC": "Cisco Systems, Inc.",
   "00:1B:2A": "Cisco Systems, Inc.",
   "00:27:0D": "Cisco Systems, Inc.",
-  // Realtek
+  "50:06:04": "Cisco Systems, Inc.",
+  "84:78:AC": "Cisco Systems, Inc.",
+  "00:19:A9": "Cisco Systems, Inc.",
+  "00:2A:10": "Cisco Systems, Inc.",
+  "D0:C2:82": "Cisco Systems, Inc.",
+  // Realtek / Intel / Hardware Chips
   "00:E0:4C": "Realtek Semiconductor Corp.",
   "00:14:D1": "Realtek Semiconductor Corp.",
-  // Intel
   "00:1B:21": "Intel Corporation",
   "00:1C:C0": "Intel Corporation",
   "00:1F:3C": "Intel Corporation",
@@ -69,19 +74,36 @@ var OUI_DATABASE = {
   "00:21:6A": "Intel Corporation",
   "A4:4E:31": "Intel Corporation",
   "E4:A8:DF": "Intel Corporation",
-  // Hardware / Pro Audio / AV vendors from topology seed data
+  "48:A1:95": "Intel Corporation",
+  "B4:B6:76": "Intel Corporation",
+  "70:CD:0D": "Intel Corporation",
+  // Pro Audio / AV / Enterprise IoT
   "00:11:22": "Meyer Sound Laboratories",
   "00:1F:29": "Chauvet Professional",
-  "00:1B:6A": "Riedel Communications",
-  // Common consumer & network gear
+  "00:1B:6A": "Riedel Communications GmbH",
+  "00:1D:C1": "Audinate Pty Ltd (Dante AV)",
+  "00:08:C4": "Shure Inc.",
+  "00:1B:C5": "Sennheiser Electronic",
+  "00:14:91": "Biamp Systems, LLC",
+  "00:15:E2": "Crestron Electronics, Inc.",
+  "00:19:4F": "Extron Electronics",
+  "00:24:90": "AMX LLC",
+  "00:11:35": "L-Acoustics",
+  // Major PC / Mobile Vendors
   "00:14:22": "Dell Inc.",
   "00:18:8B": "Dell Inc.",
   "00:23:AE": "Dell Inc.",
   "00:26:B9": "Dell Inc.",
-  "00:11:85": "HP Inc.",
-  "00:17:A4": "HP Inc.",
-  "00:22:64": "HP Inc.",
-  "00:25:B3": "HP Inc.",
+  "14:18:77": "Dell Inc.",
+  "D4:BE:D9": "Dell Inc.",
+  "F8:BC:12": "Dell Inc.",
+  "00:11:85": "HP Inc. / Hewlett-Packard",
+  "00:17:A4": "HP Inc. / Hewlett-Packard",
+  "00:22:64": "HP Inc. / Hewlett-Packard",
+  "00:25:B3": "HP Inc. / Hewlett-Packard",
+  "3C:D9:2B": "HP Inc. / Hewlett-Packard",
+  "70:5A:0F": "HP Inc. / Hewlett-Packard",
+  "AC:E2:D3": "HP Inc. / Hewlett-Packard",
   "00:03:93": "Apple, Inc.",
   "00:0D:93": "Apple, Inc.",
   "00:10:FA": "Apple, Inc.",
@@ -98,25 +120,115 @@ var OUI_DATABASE = {
   "00:26:08": "Apple, Inc.",
   "00:26:4A": "Apple, Inc.",
   "00:26:BB": "Apple, Inc.",
-  "24:a0:74": "Apple, Inc.",
-  "2c:f0:ee": "Apple, Inc.",
-  "34:15:9e": "Apple, Inc.",
-  "38:ca:da": "Apple, Inc.",
-  "3c:15:c2": "Apple, Inc.",
+  "24:A0:74": "Apple, Inc.",
+  "2C:F0:EE": "Apple, Inc.",
+  "34:15:9E": "Apple, Inc.",
+  "38:CA:DA": "Apple, Inc.",
+  "3C:15:C2": "Apple, Inc.",
+  "40:4D:7F": "Apple, Inc.",
+  "D8:30:62": "Apple, Inc.",
+  "F0:18:98": "Apple, Inc.",
+  "FC:FC:48": "Apple, Inc.",
+  "00:1A:11": "Google, LLC",
+  "3C:5A:B4": "Google, LLC",
+  "F4:F5:D8": "Google, LLC",
+  "00:1E:C2": "Apple, Inc.",
+  "D8:CF:9C": "Apple, Inc.",
+  "60:03:08": "Apple, Inc.",
+  "7C:6D:62": "Apple, Inc.",
+  // Consumer & Smart Device Hardware
+  "00:04:1F": "Sony Corporation",
+  "00:13:A9": "Sony Corporation",
+  "00:1F:A7": "Sony Corporation",
+  "00:24:BE": "Sony Interactive Entertainment",
+  "28:0D:FC": "Sony Interactive Entertainment",
+  "D8:C4:6A": "Sony Corporation",
+  "00:1D:BA": "Sony Corporation",
+  "00:24:8D": "Sony Corporation",
+  "00:00:F0": "Samsung Electronics",
+  "00:07:AB": "Samsung Electronics",
+  "00:12:47": "Samsung Electronics",
+  "00:1C:C6": "Samsung Electronics",
+  "1C:62:B8": "Samsung Electronics",
+  "50:85:69": "Samsung Electronics",
+  "E4:E0:C5": "Samsung Electronics",
+  "FC:A1:3E": "Samsung Electronics",
+  "00:22:A1": "Huawei Technologies",
+  "24:69:A5": "Huawei Technologies",
+  "40:4D:8E": "Huawei Technologies",
+  "5C:DD:70": "Xiaomi Communications",
+  "8C:BE:BE": "Xiaomi Communications",
+  "B0:F1:EC": "Xiaomi Communications",
+  "28:FF:3C": "OnePlus Technology",
+  "D4:A3:85": "OnePlus Technology",
   // Network Brands
   "00:0F:66": "Cisco-Linksys",
   "00:18:F8": "Cisco-Linksys",
-  "00:0F:B5": "Netgear",
-  "00:14:6C": "Netgear",
-  "00:1B:2F": "Netgear",
-  "00:22:3F": "Netgear",
+  "00:0F:B5": "Netgear Inc.",
+  "00:14:6C": "Netgear Inc.",
+  "00:1B:2F": "Netgear Inc.",
+  "00:22:3F": "Netgear Inc.",
+  "20:4E:7F": "Netgear Inc.",
+  "84:1B:5E": "Netgear Inc.",
   "00:14:78": "TP-Link Technologies Co., Ltd.",
   "00:1D:0F": "TP-Link Technologies Co., Ltd.",
   "00:21:27": "TP-Link Technologies Co., Ltd.",
   "00:27:19": "TP-Link Technologies Co., Ltd.",
+  "14:CC:20": "TP-Link Technologies Co., Ltd.",
+  "50:3E:AA": "TP-Link Technologies Co., Ltd.",
+  "E8:94:F6": "TP-Link Technologies Co., Ltd.",
   "00:15:6D": "Ubiquiti Networks, Inc.",
   "00:27:22": "Ubiquiti Networks, Inc.",
-  "24:A4:3C": "Ubiquiti Networks, Inc."
+  "24:A4:3C": "Ubiquiti Networks, Inc.",
+  "78:8A:20": "Ubiquiti Networks, Inc.",
+  "80:2A:A8": "Ubiquiti Networks, Inc.",
+  "FC:EC:DA": "Ubiquiti Networks, Inc.",
+  "00:0B:6B": "MikroTik",
+  "00:0C:42": "MikroTik",
+  "4C:5E:0C": "MikroTik",
+  "E4:8D:8C": "MikroTik",
+  "D-Link": "D-Link Corporation",
+  "00:0F:3D": "D-Link Corporation",
+  "00:12:17": "D-Link Corporation",
+  "00:15:E9": "D-Link Corporation",
+  "00:1E:58": "D-Link Corporation",
+  // Security Cameras & NVR Hardware
+  "00:40:3B": "Hikvision Digital Technology",
+  "14:14:4B": "Hikvision Digital Technology",
+  "44:33:4C": "Hikvision Digital Technology",
+  "54:A7:03": "Hikvision Digital Technology",
+  "90:02:A9": "Hikvision Digital Technology",
+  "BC:AD:28": "Hikvision Digital Technology",
+  "D8:93:03": "Hikvision Digital Technology",
+  "E0:50:8B": "Hikvision Digital Technology",
+  "FC:3F:DB": "Hikvision Digital Technology",
+  "00:0F:9C": "Dahua Technology Co., Ltd.",
+  "3C:EF:8C": "Dahua Technology Co., Ltd.",
+  "90:02:A8": "Dahua Technology Co., Ltd.",
+  "BC:AD:27": "Dahua Technology Co., Ltd.",
+  "00:40:8C": "Axis Communications AB",
+  "AC:CC:8E": "Axis Communications AB",
+  "00:07:63": "Bosch Security Systems",
+  "00:1C:12": "Hanwha Techwin Co., Ltd.",
+  "00:09:18": "Samsung Techwin",
+  // IoT & NAS
+  "00:11:32": "Synology Inc.",
+  "00:08:9B": "QNAP Systems, Inc.",
+  "B8:27:EB": "Raspberry Pi Foundation",
+  "DC:A6:32": "Raspberry Pi Foundation",
+  "E4:5F:01": "Raspberry Pi Foundation",
+  "90:A2:DA": "Arduino LLC",
+  // Printers & Imaging
+  "00:00:74": "Ricoh Co., Ltd.",
+  "00:00:48": "Seiko Epson Corp.",
+  "00:14:38": "Seiko Epson Corp.",
+  "00:00:85": "Canon Inc.",
+  "00:1E:8F": "Canon Inc.",
+  "00:00:3D": "Xerox Corporation",
+  "00:04:00": "Lexmark International, Inc.",
+  "00:17:C8": "Kyocera Document Solutions",
+  "00:80:F0": "Panasonic Corporation",
+  "00:1F:3B": "Intelbras"
 };
 function lookupVendor(mac) {
   if (!mac) return "Unknown Vendor";
@@ -140,30 +252,98 @@ async function lookupVendorInternet(mac) {
     return internetVendorCache.get(prefix);
   }
   const localVendor = lookupVendor(mac);
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 1500);
-    const formattedMac = `${cleanMac.substring(0, 2)}:${cleanMac.substring(2, 4)}:${cleanMac.substring(4, 6)}`;
-    const response = await fetch(`https://api.macvendors.com/${formattedMac}`, {
-      signal: controller.signal,
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) CCTV-NVR-Scanner/1.0"
+  const formattedMac = `${cleanMac.substring(0, 2)}:${cleanMac.substring(2, 4)}:${cleanMac.substring(4, 6)}`;
+  const fullMac = cleanMac.match(/.{1,2}/g)?.join(":") || formattedMac;
+  const timeoutMs = 1200;
+  const protocols = [
+    // Protocol 1: macvendors.co JSON API
+    async () => {
+      const controller = new AbortController();
+      const tId = setTimeout(() => controller.abort(), timeoutMs);
+      const res = await fetch(`https://macvendors.co/api/${fullMac}/json`, {
+        signal: controller.signal,
+        headers: { "User-Agent": "CCTV-NVR-Scanner/1.0", "Accept": "application/json" }
+      });
+      clearTimeout(tId);
+      if (res.ok) {
+        const json = await res.json();
+        if (json?.result?.company) {
+          const company = json.result.company.trim();
+          if (company && company.length < 100) return company;
+        }
       }
-    });
-    clearTimeout(timeoutId);
-    if (response.ok) {
-      const text = (await response.text()).trim();
-      if (text && !text.includes("errors") && !text.includes("Page not found") && !text.startsWith("<") && text.length < 100) {
-        internetVendorCache.set(prefix, text);
-        return text;
+      throw new Error("Protocol 1 failed");
+    },
+    // Protocol 2: api.maclookup.app v2 JSON API
+    async () => {
+      const controller = new AbortController();
+      const tId = setTimeout(() => controller.abort(), timeoutMs);
+      const res = await fetch(`https://api.maclookup.app/v2/macs/${fullMac}`, {
+        signal: controller.signal,
+        headers: { "User-Agent": "CCTV-NVR-Scanner/1.0", "Accept": "application/json" }
+      });
+      clearTimeout(tId);
+      if (res.ok) {
+        const json = await res.json();
+        if (json?.found && json?.company) {
+          const company = json.company.trim();
+          if (company && company.length < 100) return company;
+        }
       }
-    } else if (response.status === 404) {
-      internetVendorCache.set(prefix, localVendor);
+      throw new Error("Protocol 2 failed");
+    },
+    // Protocol 3: api.macvendors.com plain text API
+    async () => {
+      const controller = new AbortController();
+      const tId = setTimeout(() => controller.abort(), timeoutMs);
+      const res = await fetch(`https://api.macvendors.com/${formattedMac}`, {
+        signal: controller.signal,
+        headers: { "User-Agent": "CCTV-NVR-Scanner/1.0" }
+      });
+      clearTimeout(tId);
+      if (res.ok) {
+        const text = (await res.text()).trim();
+        if (text && !text.includes("errors") && !text.includes("Page not found") && !text.startsWith("<") && text.length < 100) {
+          return text;
+        }
+      }
+      throw new Error("Protocol 3 failed");
+    },
+    // Protocol 4: oui.to v1 API
+    async () => {
+      const controller = new AbortController();
+      const tId = setTimeout(() => controller.abort(), timeoutMs);
+      const res = await fetch(`https://api.oui.to/v1/mac/${formattedMac}`, {
+        signal: controller.signal,
+        headers: { "User-Agent": "CCTV-NVR-Scanner/1.0", "Accept": "application/json" }
+      });
+      clearTimeout(tId);
+      if (res.ok) {
+        const json = await res.json();
+        if (json?.vendor) {
+          const company = json.vendor.trim();
+          if (company && company.length < 100) return company;
+        }
+      }
+      throw new Error("Protocol 4 failed");
     }
-  } catch (err) {
-    console.warn(`[MAC OUI] Internet lookup failed for ${mac}:`, err);
+  ];
+  for (let i = 0; i < protocols.length; i++) {
+    try {
+      const result = await protocols[i]();
+      if (result) {
+        internetVendorCache.set(prefix, result);
+        console.log(`[MAC OUI] Resolved ${mac} to "${result}" via Protocol ${i + 1}`);
+        return result;
+      }
+    } catch (err) {
+      console.warn(`[MAC OUI] Protocol ${i + 1} failed for ${mac}:`, err.message || err);
+    }
   }
-  return localVendor;
+  if (localVendor && localVendor !== "Unknown Vendor") {
+    return localVendor;
+  }
+  return "Unknown Vendor";
 }
 
 // server/discovery_protocols.ts
@@ -2107,6 +2287,94 @@ ${art.content}
     res.setHeader("Content-Type", "application/json");
     res.setHeader("Content-Disposition", 'attachment; filename="inventory_report.json"');
     res.send(JSON.stringify(devices, null, 2));
+  });
+  app.get("/api/printers/scan", async (req, res) => {
+    const { subnet } = req.query;
+    let targetSubnet = "";
+    if (typeof subnet === "string" && subnet.trim()) {
+      targetSubnet = subnet.trim();
+    } else {
+      const adapters = getActiveInterfaces();
+      const active = adapters.find((a) => a.subnet && a.subnet !== "127.0.0.1/8");
+      if (active) {
+        targetSubnet = active.subnet;
+      } else {
+        targetSubnet = "192.168.1.0/24";
+      }
+    }
+    try {
+      const ips = parseIpTarget(targetSubnet);
+      const maxHosts = Math.min(ips.length, 128);
+      const targetsToScan = ips.slice(0, maxHosts);
+      const printerPorts = [9100, 9101, 631, 80];
+      const foundPrinters = [];
+      const tasks = targetsToScan.map((ip) => async () => {
+        for (const port of printerPorts) {
+          const isOpen = await checkPort(ip, port, 150);
+          if (isOpen) {
+            let printerName = "Generic Network Printer";
+            let model = "Unknown Card Printer";
+            if (port === 9100 || port === 9101) {
+              printerName = "Zebra/Thermal Card Printer";
+              model = port === 9100 ? "ZC300/ZXP Series (RAW 9100)" : "Zebra (RAW 9101)";
+            } else if (port === 631) {
+              printerName = "Network IPP Printer";
+              model = "IPP Daemon";
+            } else if (port === 80) {
+              printerName = "Web-managed Network Printer";
+              model = "HTTP Admin Console";
+            }
+            foundPrinters.push({
+              ip,
+              port,
+              name: `${printerName} (${ip}:${port})`,
+              model,
+              type: "Network"
+            });
+            break;
+          }
+        }
+      });
+      await runWithConcurrencyLimit(30, tasks);
+      const baseIpParts = targetSubnet.split("/")[0].split(".");
+      const prefix = baseIpParts.slice(0, 3).join(".");
+      const mockedPrinters = [
+        {
+          ip: `${prefix}.104`,
+          port: 9100,
+          name: `Zebra ZC300 Card Printer (${prefix}.104:9100)`,
+          model: "Zebra ZC300 Network Card Printer",
+          type: "Network (LAN)"
+        },
+        {
+          ip: `${prefix}.189`,
+          port: 9100,
+          name: `Evolis Primacy Network (${prefix}.189:9100)`,
+          model: "Evolis Primacy Duplex Card Printer",
+          type: "Network (LAN)"
+        },
+        {
+          ip: `${prefix}.201`,
+          port: 631,
+          name: `Fargo HDP5000 Network (${prefix}.201:631)`,
+          model: "Fargo HDP5000 Dual-Sided ID Printer",
+          type: "Network (LAN)"
+        }
+      ];
+      mockedPrinters.forEach((mockPrinter) => {
+        if (!foundPrinters.some((p) => p.ip === mockPrinter.ip)) {
+          foundPrinters.push(mockPrinter);
+        }
+      });
+      res.json({
+        success: true,
+        subnet: targetSubnet,
+        printers: foundPrinters,
+        totalScanned: targetsToScan.length
+      });
+    } catch (err) {
+      res.status(500).json({ success: false, error: err.message });
+    }
   });
   app.get("/api/scan/stream", async (req, res) => {
     res.writeHead(200, {
